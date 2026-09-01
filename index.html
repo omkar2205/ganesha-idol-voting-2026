@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#8f1f1f" />
+  <meta name="description" content="Ganesha Idol Competition 2026 voting" />
+  <title>Ganesha Idol Competition 2026 | Vote</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="ornament ornament-left" aria-hidden="true"></div>
+      <div class="ornament ornament-right" aria-hidden="true"></div>
+
+      <p class="eyebrow">Ganapati Bappa Morya</p>
+      <h1>Ganesha Idol Competition</h1>
+      <p class="event-date">17th September 2026</p>
+      <div class="title-divider" aria-hidden="true"><span>✦</span></div>
+      <h2>Cast Your Vote</h2>
+      <p class="intro">Take a closer look at each creation and choose your favourite.</p>
+    </header>
+
+    <main>
+      <section class="status-wrap" aria-live="polite">
+        <div id="statusBanner" class="status-banner loading">
+          <span class="status-dot"></span>
+          <span id="statusText">Preparing the voting entries…</span>
+        </div>
+      </section>
+
+      <section id="entriesSection" class="entries-section" aria-labelledby="entriesHeading">
+        <div class="section-heading">
+          <p class="section-kicker">The Finalists</p>
+          <h2 id="entriesHeading">Choose one creation</h2>
+          <p>You can change your vote while voting remains open.</p>
+        </div>
+
+        <div id="entriesGrid" class="entries-grid" aria-live="polite"></div>
+
+        <div id="emptyState" class="empty-state" hidden>
+          <div class="empty-symbol">ॐ</div>
+          <h3>Entries are being prepared</h3>
+          <p>The finalist photographs will appear here shortly.</p>
+        </div>
+      </section>
+
+      <section id="resultsSection" class="results-section" hidden aria-labelledby="resultsHeading">
+        <div class="section-heading compact">
+          <p class="section-kicker">Live Tally</p>
+          <h2 id="resultsHeading">Voting results</h2>
+        </div>
+        <div id="resultsList" class="results-list"></div>
+      </section>
+    </main>
+
+    <footer>
+      <span>Ganesha Idol Competition 2026</span>
+      <span class="footer-separator">•</span>
+      <span>One vote per browser</span>
+    </footer>
+  </div>
+
+  <dialog id="imageDialog" class="image-dialog">
+    <button id="closeDialog" class="dialog-close" type="button" aria-label="Close image">×</button>
+    <img id="dialogImage" alt="" />
+    <p id="dialogCaption"></p>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>
