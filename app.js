@@ -279,6 +279,7 @@ function renderEntries() {
   els.emptyState.hidden = true;
   const visibleEntries = state.entries.slice(0, state.images.length);
   const votingOpen = votingIsOpen();
+  const alreadyVoted = state.myVote !== null;
 
   visibleEntries.forEach((entry, index) => {
     const image = getImageForEntry(index);
@@ -289,6 +290,15 @@ function renderEntries() {
     article.className = `entry-card${selected ? ' selected' : ''}`;
     article.dataset.entryId = entry.id;
 
+    const buttonDisabled = !votingOpen || state.busy || alreadyVoted;
+    const buttonText = selected
+      ? 'Vote cast'
+      : alreadyVoted
+        ? 'Vote locked'
+        : votingOpen
+          ? 'Vote'
+          : 'Voting closed';
+
     article.innerHTML = `
       <div class="entry-media" role="button" tabindex="0" aria-label="View ${escapeHtml(entry.title)} image">
         <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(entry.title)} Ganesha idol" loading="lazy" decoding="async" />
@@ -297,10 +307,10 @@ function renderEntries() {
       <div class="entry-body">
         <div class="entry-copy">
           <h3>${escapeHtml(entry.title)}</h3>
-          <p>${selected ? 'Your current choice' : 'Tap the image to view larger'}</p>
+          <p>${selected ? 'Your vote' : alreadyVoted ? 'Voting complete' : 'Tap the image to view larger'}</p>
         </div>
-        <button class="vote-button" type="button" ${!votingOpen || state.busy ? 'disabled' : ''}>
-          ${selected ? 'Selected' : votingOpen ? 'Vote' : 'Voting closed'}
+        <button class="vote-button" type="button" ${buttonDisabled ? 'disabled' : ''}>
+          ${buttonText}
         </button>
       </div>
     `;
@@ -345,6 +355,16 @@ function closeImage() {
 async function castVote(entryId) {
   if (state.busy || !votingIsOpen()) return;
 
+  if (state.myVote !== null) {
+    showToast('Your vote has already been cast and cannot be changed.');
+    return;
+  }
+
+  const entry = state.entries.find((item) => Number(item.id) === Number(entryId));
+  const entryName = entry?.title || 'this entry';
+  const confirmed = window.confirm(`Confirm your vote for ${entryName}? Once submitted, your vote cannot be changed.`);
+  if (!confirmed) return;
+
   state.busy = true;
   renderEntries();
 
@@ -356,13 +376,13 @@ async function castVote(entryId) {
 
     if (error) throw error;
 
-    const changed = Array.isArray(data) && data.length ? Boolean(data[0].changed) : true;
     state.myVote = entryId;
-    showToast(changed ? 'Your vote has been recorded.' : 'That is already your selected entry.');
+    showToast('Your vote has been recorded and locked.');
 
     await loadPublicStatus();
   } catch (error) {
     console.error(error);
+    await loadMyVote().catch(() => {});
     showToast(error?.message || 'Your vote could not be recorded. Please try again.');
     await loadPublicStatus().catch(() => {});
   } finally {
