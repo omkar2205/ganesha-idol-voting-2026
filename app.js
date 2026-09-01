@@ -9,6 +9,8 @@ const state = {
   images: [],
   myVote: null,
   voterToken: null,
+  publicStatus: null,
+  serverOffsetMs: 0,
   busy: false,
 };
 
@@ -16,6 +18,9 @@ const els = {
   statusBanner: document.getElementById('statusBanner'),
   statusText: document.getElementById('statusText'),
   totalVotes: document.getElementById('totalVotes'),
+  countdown: document.getElementById('countdown'),
+  countdownLabel: document.getElementById('countdownLabel'),
+  countdownNote: document.getElementById('countdownNote'),
   entriesGrid: document.getElementById('entriesGrid'),
   emptyState: document.getElementById('emptyState'),
   resultsSection: document.getElementById('resultsSection'),
@@ -27,12 +32,29 @@ const els = {
   toast: document.getElementById('toast'),
 };
 
+let statusPollTimer = null;
+let countdownTimer = null;
+let expiryRefreshPending = false;
+
+function createUuid() {
+  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+    return window.crypto.randomUUID();
+  }
+
+  const template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx';
+  return template.replace(/[xy]/g, (char) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = char === 'x' ? random : ((random & 0x3) | 0x8);
+    return value.toString(16);
+  });
+}
+
 function getVoterToken() {
   const key = 'ganesha-idol-voter-token-v1';
   let token = localStorage.getItem(key);
 
   if (!token) {
-    token = crypto.randomUUID();
+    token = createUuid();
     localStorage.setItem(key, token);
   }
 
@@ -55,11 +77,11 @@ function showToast(message) {
 
 function escapeHtml(value) {
   return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function naturalSort(a, b) {
@@ -69,11 +91,48 @@ function naturalSort(a, b) {
   });
 }
 
+function serverNowMs() {
+  return Date.now() + state.serverOffsetMs;
+}
+
+function revealTimeMs() {
+  const value = state.publicStatus?.results_reveal_at;
+  if (!value) return null;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function remainingMs() {
+  const reveal = revealTimeMs();
+  if (reveal === null) return null;
+  return Math.max(0, reveal - serverNowMs());
+}
+
+function resultsAvailable() {
+  if (state.publicStatus?.results_available) return true;
+  const remaining = remainingMs();
+  return remaining !== null && remaining <= 0;
+}
+
+function votingIsOpen() {
+  if (!state.publicStatus?.voting_open) return false;
+  const remaining = remainingMs();
+  return remaining === null || remaining > 0;
+}
+
+function formatCountdown(milliseconds) {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':');
+}
+
 async function loadSettingsAndEntries() {
   const [settingsResponse, entriesResponse] = await Promise.all([
     supabaseClient
       .from('vote_settings')
-      .select('event_title,event_subtitle,event_date,voting_open,show_results,image_feed_url,drive_folder_id')
+      .select('event_title,event_subtitle,event_date,image_feed_url,drive_folder_id')
       .eq('id', true)
       .single(),
     supabaseClient
@@ -125,16 +184,84 @@ async function loadMyVote() {
   state.myVote = Array.isArray(data) && data.length ? Number(data[0].entry_id) : null;
 }
 
-async function loadTotalVotes() {
-  const { data, error } = await supabaseClient.rpc('get_total_votes');
+async function loadPublicStatus() {
+  const previousOpen = votingIsOpen();
+  const previousResults = resultsAvailable();
 
-  if (error) {
-    console.error('Could not refresh total vote count:', error);
+  const { data, error } = await supabaseClient.rpc('get_public_vote_status');
+  if (error) throw error;
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error('Voting status is unavailable.');
+
+  const serverTime = new Date(row.server_now).getTime();
+  if (Number.isFinite(serverTime)) {
+    state.serverOffsetMs = serverTime - Date.now();
+  }
+
+  state.publicStatus = row;
+  expiryRefreshPending = false;
+  updateLivePanel();
+
+  const currentOpen = votingIsOpen();
+  const currentResults = resultsAvailable();
+  if (previousOpen !== currentOpen) renderEntries();
+  if (!previousResults && currentResults) await loadResults();
+}
+
+function updateLivePanel() {
+  const total = Number(state.publicStatus?.total_votes || 0);
+  els.totalVotes.textContent = Number.isFinite(total) ? total.toLocaleString() : '0';
+
+  if (!state.publicStatus) {
+    els.countdown.textContent = 'Waiting';
     return;
   }
 
-  const total = Number(data ?? 0);
-  els.totalVotes.textContent = Number.isFinite(total) ? total.toLocaleString() : '0';
+  if (resultsAvailable()) {
+    setStatus('closed', 'Voting has ended');
+    els.countdownLabel.textContent = 'Voting ended';
+    els.countdown.textContent = '00:00:00';
+    els.countdownNote.textContent = 'Final results are now available below';
+    return;
+  }
+
+  if (!state.publicStatus.first_vote_at || !state.publicStatus.results_reveal_at) {
+    setStatus(votingIsOpen() ? 'open' : 'closed', votingIsOpen() ? 'Voting is open' : 'Voting is closed');
+    els.countdownLabel.textContent = 'Countdown';
+    els.countdown.textContent = 'Waiting';
+    els.countdownNote.textContent = 'The 1-hour voting window starts with the first vote';
+    return;
+  }
+
+  const remaining = remainingMs();
+  if (remaining !== null && remaining > 0) {
+    setStatus(votingIsOpen() ? 'open' : 'closed', votingIsOpen() ? 'Voting is open' : 'Voting is closed');
+    els.countdownLabel.textContent = 'Voting closes in';
+    els.countdown.textContent = formatCountdown(remaining);
+    els.countdownNote.textContent = 'Individual vote totals stay hidden until the countdown ends';
+  } else {
+    setStatus('closed', 'Voting has ended');
+    els.countdownLabel.textContent = 'Voting ended';
+    els.countdown.textContent = '00:00:00';
+    els.countdownNote.textContent = 'Preparing final results…';
+  }
+}
+
+function tickCountdown() {
+  const wasOpen = votingIsOpen();
+  updateLivePanel();
+  const isOpen = votingIsOpen();
+
+  if (wasOpen !== isOpen) renderEntries();
+
+  if (state.publicStatus?.results_reveal_at && remainingMs() === 0 && !state.publicStatus.results_available && !expiryRefreshPending) {
+    expiryRefreshPending = true;
+    loadPublicStatus().catch((error) => {
+      expiryRefreshPending = false;
+      console.error('Could not refresh final voting status:', error);
+    });
+  }
 }
 
 function getImageForEntry(index) {
@@ -150,14 +277,14 @@ function renderEntries() {
   }
 
   els.emptyState.hidden = true;
-
   const visibleEntries = state.entries.slice(0, state.images.length);
+  const votingOpen = votingIsOpen();
 
   visibleEntries.forEach((entry, index) => {
     const image = getImageForEntry(index);
-    const selected = state.myVote === Number(entry.id);
-    const votingOpen = Boolean(state.settings?.voting_open);
+    if (!image) return;
 
+    const selected = state.myVote === Number(entry.id);
     const article = document.createElement('article');
     article.className = `entry-card${selected ? ' selected' : ''}`;
     article.dataset.entryId = entry.id;
@@ -180,8 +307,8 @@ function renderEntries() {
 
     const media = article.querySelector('.entry-media');
     const voteButton = article.querySelector('.vote-button');
-
     const openImage = () => showImage(image.imageUrl, entry.title);
+
     media.addEventListener('click', openImage);
     media.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -191,7 +318,6 @@ function renderEntries() {
     });
 
     voteButton.addEventListener('click', () => castVote(Number(entry.id)));
-
     els.entriesGrid.appendChild(article);
   });
 }
@@ -200,11 +326,24 @@ function showImage(src, caption) {
   els.dialogImage.src = src;
   els.dialogImage.alt = `${caption} Ganesha idol`;
   els.dialogCaption.textContent = caption;
-  els.imageDialog.showModal();
+
+  if (typeof els.imageDialog.showModal === 'function') {
+    els.imageDialog.showModal();
+  } else {
+    els.imageDialog.setAttribute('open', '');
+  }
+}
+
+function closeImage() {
+  if (typeof els.imageDialog.close === 'function') {
+    els.imageDialog.close();
+  } else {
+    els.imageDialog.removeAttribute('open');
+  }
 }
 
 async function castVote(entryId) {
-  if (state.busy || !state.settings?.voting_open) return;
+  if (state.busy || !votingIsOpen()) return;
 
   state.busy = true;
   renderEntries();
@@ -221,14 +360,11 @@ async function castVote(entryId) {
     state.myVote = entryId;
     showToast(changed ? 'Your vote has been recorded.' : 'That is already your selected entry.');
 
-    await loadTotalVotes();
-
-    if (state.settings.show_results) {
-      await loadResults();
-    }
+    await loadPublicStatus();
   } catch (error) {
     console.error(error);
     showToast(error?.message || 'Your vote could not be recorded. Please try again.');
+    await loadPublicStatus().catch(() => {});
   } finally {
     state.busy = false;
     renderEntries();
@@ -236,13 +372,14 @@ async function castVote(entryId) {
 }
 
 async function loadResults() {
-  if (!state.settings?.show_results) {
+  if (!resultsAvailable()) {
     els.resultsSection.hidden = true;
     return;
   }
 
   const { data, error } = await supabaseClient.rpc('get_vote_results');
   if (error) {
+    console.error('Could not load final results:', error);
     els.resultsSection.hidden = true;
     return;
   }
@@ -254,11 +391,13 @@ async function loadResults() {
   els.resultsList.innerHTML = results.map((item) => {
     const votes = Number(item.vote_count || 0);
     const width = Math.max(0, Math.min(100, (votes / highest) * 100));
+    const percentage = total ? Math.round((votes / total) * 100) : 0;
+
     return `
       <div class="result-row">
         <span class="result-name">${escapeHtml(item.title)}</span>
         <div class="result-track" aria-hidden="true"><div class="result-fill" style="width:${width}%"></div></div>
-        <span class="result-count">${votes}${total ? ` · ${Math.round((votes / total) * 100)}%` : ''}</span>
+        <span class="result-count">${votes} · ${percentage}%</span>
       </div>
     `;
   }).join('');
@@ -266,30 +405,35 @@ async function loadResults() {
   els.resultsSection.hidden = false;
 }
 
+async function refreshStatusQuietly() {
+  try {
+    await loadPublicStatus();
+    if (resultsAvailable()) await loadResults();
+  } catch (error) {
+    console.error('Could not refresh voting status:', error);
+  }
+}
+
 async function init() {
   state.voterToken = getVoterToken();
 
   try {
     await loadSettingsAndEntries();
-
-    if (state.settings.voting_open) {
-      setStatus('open', 'Voting is open');
-    } else {
-      setStatus('closed', 'Voting is closed');
-    }
-
     await Promise.all([
       loadDriveImages(),
       loadMyVote(),
-      loadTotalVotes(),
+      loadPublicStatus(),
     ]);
 
     renderEntries();
     await loadResults();
 
-    window.setInterval(() => {
-      loadTotalVotes();
-    }, 5000);
+    countdownTimer = window.setInterval(tickCountdown, 1000);
+    statusPollTimer = window.setInterval(refreshStatusQuietly, 5000);
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refreshStatusQuietly();
+    });
   } catch (error) {
     console.error(error);
     setStatus('closed', 'Voting page is temporarily unavailable');
@@ -297,9 +441,14 @@ async function init() {
   }
 }
 
-els.closeDialog.addEventListener('click', () => els.imageDialog.close());
+els.closeDialog.addEventListener('click', closeImage);
 els.imageDialog.addEventListener('click', (event) => {
-  if (event.target === els.imageDialog) els.imageDialog.close();
+  if (event.target === els.imageDialog) closeImage();
+});
+
+window.addEventListener('pagehide', () => {
+  if (statusPollTimer) window.clearInterval(statusPollTimer);
+  if (countdownTimer) window.clearInterval(countdownTimer);
 });
 
 init();
