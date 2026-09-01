@@ -13,6 +13,8 @@ const state = {
   alreadyVoted: false,
   myVote: null,
   publicStatus: null,
+  results: {},
+  resultsLoaded: false,
   serverOffsetMs: 0,
   busy: false,
 };
@@ -24,14 +26,13 @@ const els = {
   countdown: document.getElementById('countdown'),
   countdownLabel: document.getElementById('countdownLabel'),
   countdownNote: document.getElementById('countdownNote'),
+  emailOverlay: document.getElementById('emailOverlay'),
   emailForm: document.getElementById('emailForm'),
   emailInput: document.getElementById('emailInput'),
   emailButton: document.getElementById('emailButton'),
   emailMessage: document.getElementById('emailMessage'),
   entriesGrid: document.getElementById('entriesGrid'),
   emptyState: document.getElementById('emptyState'),
-  resultsSection: document.getElementById('resultsSection'),
-  resultsList: document.getElementById('resultsList'),
   imageDialog: document.getElementById('imageDialog'),
   dialogImage: document.getElementById('dialogImage'),
   dialogCaption: document.getElementById('dialogCaption'),
@@ -71,7 +72,7 @@ function showToast(message) {
   window.clearTimeout(showToast.timer);
   showToast.timer = window.setTimeout(() => {
     els.toast.classList.remove('show');
-  }, 2600);
+  }, 2800);
 }
 
 function escapeHtml(value) {
@@ -124,20 +125,43 @@ function formatCountdown(milliseconds) {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  return [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':');
+  return [hours, minutes, seconds]
+    .map((part) => String(part).padStart(2, '0'))
+    .join(':');
+}
+
+function formatVotingWindow() {
+  const seconds = Number(state.settings?.voting_window_seconds || 60);
+  if (seconds % 3600 === 0) {
+    const hours = seconds / 3600;
+    return `${hours}-hour`;
+  }
+  if (seconds % 60 === 0) {
+    const minutes = seconds / 60;
+    return `${minutes}-minute`;
+  }
+  return `${seconds}-second`;
 }
 
 function updateEmailControls() {
-  const enabled = votingIsOpen() && !resultsAvailable();
-  els.emailInput.disabled = !enabled || state.busy;
-  els.emailButton.disabled = !enabled || state.busy;
+  els.emailInput.disabled = state.busy;
+  els.emailButton.disabled = state.busy;
+}
+
+function unlockSite() {
+  document.body.classList.remove('gate-open');
+  els.emailOverlay.setAttribute('aria-hidden', 'true');
+  window.setTimeout(() => {
+    const heading = document.querySelector('.hero h1');
+    if (heading) heading.setAttribute('tabindex', '-1');
+  }, 0);
 }
 
 async function loadSettingsAndEntries() {
   const [settingsResponse, entriesResponse] = await Promise.all([
     supabaseClient
       .from('vote_settings')
-      .select('event_title,event_subtitle,event_date,image_feed_url,drive_folder_id')
+      .select('event_title,event_subtitle,event_date,image_feed_url,drive_folder_id,voting_window_seconds')
       .eq('id', true)
       .single(),
     supabaseClient
@@ -168,7 +192,7 @@ async function loadDriveImages() {
   });
 
   if (!response.ok) {
-    throw new Error('Could not load the finalist photographs.');
+    throw new Error('Could not load the competition photographs.');
   }
 
   const payload = await response.json();
@@ -207,12 +231,15 @@ async function loadPublicStatus() {
   state.publicStatus = row;
   expiryRefreshPending = false;
   updateLivePanel();
-  updateEmailControls();
 
   const currentOpen = votingIsOpen();
   const currentResults = resultsAvailable();
-  if (previousOpen !== currentOpen) renderEntries();
-  if (!previousResults && currentResults) await loadResults();
+
+  if (currentResults && (!state.resultsLoaded || !previousResults)) {
+    await loadResults();
+  } else if (previousOpen !== currentOpen) {
+    renderEntries();
+  }
 }
 
 function updateLivePanel() {
@@ -220,7 +247,9 @@ function updateLivePanel() {
   els.totalVotes.textContent = Number.isFinite(total) ? total.toLocaleString() : '0';
 
   if (!state.publicStatus) {
+    els.countdownLabel.textContent = 'Countdown';
     els.countdown.textContent = 'Waiting';
+    els.countdownNote.textContent = 'Starts with the first vote';
     return;
   }
 
@@ -228,7 +257,7 @@ function updateLivePanel() {
     setStatus('closed', 'Voting has ended');
     els.countdownLabel.textContent = 'Voting ended';
     els.countdown.textContent = '00:00:00';
-    els.countdownNote.textContent = 'Final results are now available below';
+    els.countdownNote.textContent = 'Results are now shown under each entry';
     return;
   }
 
@@ -236,7 +265,7 @@ function updateLivePanel() {
     setStatus(votingIsOpen() ? 'open' : 'closed', votingIsOpen() ? 'Voting is open' : 'Voting is closed');
     els.countdownLabel.textContent = 'Countdown';
     els.countdown.textContent = 'Waiting';
-    els.countdownNote.textContent = 'The 1-hour voting window starts with the first vote';
+    els.countdownNote.textContent = `${formatVotingWindow()} window starts with the first vote`;
     return;
   }
 
@@ -245,24 +274,28 @@ function updateLivePanel() {
     setStatus(votingIsOpen() ? 'open' : 'closed', votingIsOpen() ? 'Voting is open' : 'Voting is closed');
     els.countdownLabel.textContent = 'Voting closes in';
     els.countdown.textContent = formatCountdown(remaining);
-    els.countdownNote.textContent = 'Individual vote totals stay hidden until the countdown ends';
+    els.countdownNote.textContent = 'Individual totals stay hidden until time runs out';
   } else {
     setStatus('closed', 'Voting has ended');
     els.countdownLabel.textContent = 'Voting ended';
     els.countdown.textContent = '00:00:00';
-    els.countdownNote.textContent = 'Preparing final results…';
+    els.countdownNote.textContent = 'Preparing results…';
   }
 }
 
 function tickCountdown() {
   const wasOpen = votingIsOpen();
   updateLivePanel();
-  updateEmailControls();
   const isOpen = votingIsOpen();
 
   if (wasOpen !== isOpen) renderEntries();
 
-  if (state.publicStatus?.results_reveal_at && remainingMs() === 0 && !state.publicStatus.results_available && !expiryRefreshPending) {
+  if (
+    state.publicStatus?.results_reveal_at &&
+    remainingMs() === 0 &&
+    !state.publicStatus.results_available &&
+    !expiryRefreshPending
+  ) {
     expiryRefreshPending = true;
     loadPublicStatus().catch((error) => {
       expiryRefreshPending = false;
@@ -273,6 +306,10 @@ function tickCountdown() {
 
 function getImageForEntry(index) {
   return state.images[index] || null;
+}
+
+function getResultForEntry(entryId) {
+  return state.results[String(entryId)] || null;
 }
 
 function renderEntries() {
@@ -287,39 +324,49 @@ function renderEntries() {
   const visibleEntries = state.entries.slice(0, state.images.length);
   const votingOpen = votingIsOpen();
   const canVote = votingOpen && state.emailReady && !state.alreadyVoted && !state.busy;
+  const showResults = resultsAvailable() && state.resultsLoaded;
 
   visibleEntries.forEach((entry, index) => {
     const image = getImageForEntry(index);
     if (!image) return;
 
     const selected = state.myVote === Number(entry.id);
+    const result = getResultForEntry(entry.id);
     const article = document.createElement('article');
     article.className = `entry-card${selected ? ' selected' : ''}`;
     article.dataset.entryId = entry.id;
 
-    let buttonText = 'Enter email to vote';
-    if (!votingOpen) buttonText = 'Voting closed';
+    let buttonText = 'Vote';
+    if (!votingOpen) buttonText = 'Voting ended';
     else if (selected) buttonText = 'Vote cast';
-    else if (state.alreadyVoted) buttonText = 'Vote locked';
-    else if (state.emailReady) buttonText = 'Vote';
+    else if (state.alreadyVoted) buttonText = 'Vote already cast';
 
     let detailText = 'Tap the image to view larger';
     if (selected) detailText = 'Your vote is locked';
     else if (state.alreadyVoted) detailText = 'This email has already voted';
+    else if (!state.emailReady && votingOpen) detailText = 'Voting access unavailable';
+
+    const resultMarkup = showResults && result
+      ? `<div class="entry-result" aria-label="${escapeHtml(entry.title)} result">
+          <strong>${Number(result.vote_count).toLocaleString()}</strong>
+          <span>${Number(result.vote_count) === 1 ? 'vote' : 'votes'}</span>
+          <span class="result-dot">•</span>
+          <span class="result-percent">${result.percentage}%</span>
+        </div>`
+      : '';
 
     article.innerHTML = `
       <div class="entry-media" role="button" tabindex="0" aria-label="View ${escapeHtml(entry.title)} image">
         <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(entry.title)} Ganesha idol" loading="lazy" decoding="async" />
         <span class="entry-number">${String(entry.sort_order).padStart(2, '0')}</span>
       </div>
+      ${resultMarkup}
       <div class="entry-body">
         <div class="entry-copy">
-          <h3>${escapeHtml(entry.title)}</h3>
+          <h2>${escapeHtml(entry.title)}</h2>
           <p>${detailText}</p>
         </div>
-        <button class="vote-button" type="button" ${canVote ? '' : 'disabled'}>
-          ${buttonText}
-        </button>
+        <button class="vote-button" type="button" ${canVote ? '' : 'disabled'}>${buttonText}</button>
       </div>
     `;
 
@@ -363,19 +410,9 @@ function closeImage() {
 async function handleEmailSubmit(event) {
   event.preventDefault();
 
-  if (!votingIsOpen()) {
-    setEmailMessage('error', 'Voting is closed.');
-    return;
-  }
-
   const email = normalizeEmail(els.emailInput.value);
   if (!isAllowedEmail(email)) {
-    state.voterEmail = '';
-    state.emailReady = false;
-    state.alreadyVoted = false;
-    state.myVote = null;
     setEmailMessage('error', 'Please enter a valid @guseducationindia.com email address.');
-    renderEntries();
     return;
   }
 
@@ -385,18 +422,26 @@ async function handleEmailSubmit(event) {
   state.alreadyVoted = false;
   state.myVote = null;
   updateEmailControls();
-  renderEntries();
+  setEmailMessage('info', 'Checking email…');
 
   try {
     const alreadyVoted = await checkEmailAlreadyVoted(email);
     state.alreadyVoted = alreadyVoted;
-    state.emailReady = !alreadyVoted;
+    state.emailReady = votingIsOpen() && !alreadyVoted;
 
     if (alreadyVoted) {
-      setEmailMessage('error', 'This email address has already voted.');
+      setEmailMessage('info', 'This email has already voted. Opening the competition…');
+    } else if (votingIsOpen()) {
+      setEmailMessage('success', 'Email accepted. Opening voting…');
     } else {
-      setEmailMessage('success', 'Email accepted. Pick your favourite below.');
+      setEmailMessage('success', 'Email accepted. Opening the results…');
     }
+
+    window.setTimeout(() => {
+      unlockSite();
+      renderEntries();
+      if (alreadyVoted) showToast('This email has already voted.');
+    }, 260);
   } catch (error) {
     console.error(error);
     state.voterEmail = '';
@@ -406,27 +451,18 @@ async function handleEmailSubmit(event) {
   } finally {
     state.busy = false;
     updateEmailControls();
-    renderEntries();
   }
 }
 
 function handleEmailInput() {
-  const current = normalizeEmail(els.emailInput.value);
-  if (current === state.voterEmail) return;
-
-  state.voterEmail = '';
-  state.emailReady = false;
-  state.alreadyVoted = false;
-  state.myVote = null;
   setEmailMessage('', '');
-  renderEntries();
 }
 
 async function castVote(entryId) {
   if (state.busy || !votingIsOpen()) return;
 
   if (!state.voterEmail || !state.emailReady) {
-    showToast('Enter your work email and press Continue first.');
+    showToast('Voting is not available for this email.');
     return;
   }
 
@@ -437,11 +473,12 @@ async function castVote(entryId) {
 
   const entry = state.entries.find((item) => Number(item.id) === Number(entryId));
   const entryName = entry?.title || 'this entry';
-  const confirmed = window.confirm(`Confirm your vote for ${entryName}? Once submitted, your vote cannot be changed.`);
+  const confirmed = window.confirm(
+    `Confirm your vote for ${entryName}? Once submitted, your vote cannot be changed.`
+  );
   if (!confirmed) return;
 
   state.busy = true;
-  updateEmailControls();
   renderEntries();
 
   try {
@@ -455,66 +492,62 @@ async function castVote(entryId) {
     state.myVote = entryId;
     state.alreadyVoted = true;
     state.emailReady = false;
-    setEmailMessage('success', 'Vote recorded. This email cannot vote again.');
     showToast('Your vote has been recorded and locked.');
 
     await loadPublicStatus();
+    renderEntries();
   } catch (error) {
     console.error(error);
 
     if (String(error?.message || '').toLowerCase().includes('already voted')) {
       state.alreadyVoted = true;
       state.emailReady = false;
-      setEmailMessage('error', 'This email address has already voted.');
     }
 
     showToast(error?.message || 'Your vote could not be recorded. Please try again.');
     await loadPublicStatus().catch(() => {});
+    renderEntries();
   } finally {
     state.busy = false;
-    updateEmailControls();
     renderEntries();
   }
 }
 
 async function loadResults() {
   if (!resultsAvailable()) {
-    els.resultsSection.hidden = true;
+    state.results = {};
+    state.resultsLoaded = false;
+    renderEntries();
     return;
   }
 
   const { data, error } = await supabaseClient.rpc('get_vote_results');
   if (error) {
     console.error('Could not load final results:', error);
-    els.resultsSection.hidden = true;
     return;
   }
 
   const results = Array.isArray(data) ? data : [];
   const total = results.reduce((sum, item) => sum + Number(item.vote_count || 0), 0);
-  const highest = Math.max(...results.map((item) => Number(item.vote_count || 0)), 1);
+  const mapped = {};
 
-  els.resultsList.innerHTML = results.map((item) => {
+  results.forEach((item) => {
     const votes = Number(item.vote_count || 0);
-    const width = Math.max(0, Math.min(100, (votes / highest) * 100));
-    const percentage = total ? Math.round((votes / total) * 100) : 0;
+    mapped[String(item.entry_id)] = {
+      vote_count: votes,
+      percentage: total ? Math.round((votes / total) * 100) : 0,
+    };
+  });
 
-    return `
-      <div class="result-row">
-        <span class="result-name">${escapeHtml(item.title)}</span>
-        <div class="result-track" aria-hidden="true"><div class="result-fill" style="width:${width}%"></div></div>
-        <span class="result-count">${votes} · ${percentage}%</span>
-      </div>
-    `;
-  }).join('');
-
-  els.resultsSection.hidden = false;
+  state.results = mapped;
+  state.resultsLoaded = true;
+  renderEntries();
 }
 
 async function refreshStatusQuietly() {
   try {
     await loadPublicStatus();
-    if (resultsAvailable()) await loadResults();
+    if (resultsAvailable() && !state.resultsLoaded) await loadResults();
   } catch (error) {
     console.error('Could not refresh voting status:', error);
   }
@@ -529,11 +562,11 @@ async function init() {
     ]);
 
     renderEntries();
-    await loadResults();
+    if (resultsAvailable()) await loadResults();
     updateEmailControls();
 
     countdownTimer = window.setInterval(tickCountdown, 1000);
-    statusPollTimer = window.setInterval(refreshStatusQuietly, 5000);
+    statusPollTimer = window.setInterval(refreshStatusQuietly, 3000);
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') refreshStatusQuietly();
@@ -542,7 +575,7 @@ async function init() {
     console.error(error);
     setStatus('closed', 'Voting page is temporarily unavailable');
     els.emptyState.hidden = false;
-    updateEmailControls();
+    setEmailMessage('error', 'The competition could not be loaded. Please refresh and try again.');
   }
 }
 
