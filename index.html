@@ -2,48 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#8f1f1f" />
   <meta name="description" content="Ganesha Idol Competition 2026 voting" />
   <title>Ganesha Idol Competition 2026 | Vote</title>
   <link rel="stylesheet" href="style.css" />
-  <style>
-    .status-group {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .vote-counter {
-      display: inline-flex;
-      align-items: baseline;
-      gap: 7px;
-      min-height: 42px;
-      padding: 8px 15px;
-      border: 1px solid rgba(149, 31, 34, 0.14);
-      border-radius: 999px;
-      color: var(--ink);
-      background: rgba(255, 247, 233, 0.72);
-      backdrop-filter: blur(8px);
-      white-space: nowrap;
-    }
-
-    .vote-counter-number {
-      color: var(--maroon-dark);
-      font-family: Georgia, "Times New Roman", serif;
-      font-size: 1.35rem;
-      font-weight: 800;
-      line-height: 1;
-    }
-
-    .vote-counter-label {
-      color: var(--muted);
-      font-size: 0.86rem;
-      font-weight: 700;
-    }
-  </style>
 </head>
 <body>
   <div class="page-shell">
@@ -60,15 +23,23 @@
     </header>
 
     <main>
-      <section class="status-wrap" aria-live="polite">
-        <div class="status-group">
-          <div id="statusBanner" class="status-banner loading">
-            <span class="status-dot"></span>
-            <span id="statusText">Preparing the voting entries…</span>
+      <section class="live-panel" aria-label="Live voting status">
+        <div id="statusBanner" class="status-banner loading" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="statusText">Preparing the voting entries…</span>
+        </div>
+
+        <div class="live-metrics">
+          <div class="metric-card">
+            <span class="metric-label">Votes cast</span>
+            <strong id="totalVotes" class="metric-value" aria-live="polite">0</strong>
+            <span class="metric-note">Only the total is shown during voting</span>
           </div>
-          <div class="vote-counter" aria-label="Total votes cast">
-            <span id="totalVotes" class="vote-counter-number">0</span>
-            <span class="vote-counter-label">votes cast</span>
+
+          <div class="metric-card countdown-card">
+            <span id="countdownLabel" class="metric-label">Countdown</span>
+            <strong id="countdown" class="metric-value countdown-value" aria-live="polite">Waiting</strong>
+            <span id="countdownNote" class="metric-note">The 1-hour voting window starts with the first vote</span>
           </div>
         </div>
       </section>
@@ -77,7 +48,7 @@
         <div class="section-heading">
           <p class="section-kicker">The Finalists</p>
           <h2 id="entriesHeading">Choose one creation</h2>
-          <p>You can change your vote while voting remains open.</p>
+          <p>You can change your vote while the countdown is running.</p>
         </div>
 
         <div id="entriesGrid" class="entries-grid" aria-live="polite"></div>
@@ -93,6 +64,7 @@
         <div class="section-heading compact">
           <p class="section-kicker">Final Tally</p>
           <h2 id="resultsHeading">Voting results</h2>
+          <p>The one-hour voting window has ended.</p>
         </div>
         <div id="resultsList" class="results-list"></div>
       </section>
