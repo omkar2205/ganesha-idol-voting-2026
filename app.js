@@ -15,6 +15,7 @@ const state = {
 const els = {
   statusBanner: document.getElementById('statusBanner'),
   statusText: document.getElementById('statusText'),
+  totalVotes: document.getElementById('totalVotes'),
   entriesGrid: document.getElementById('entriesGrid'),
   emptyState: document.getElementById('emptyState'),
   resultsSection: document.getElementById('resultsSection'),
@@ -124,6 +125,18 @@ async function loadMyVote() {
   state.myVote = Array.isArray(data) && data.length ? Number(data[0].entry_id) : null;
 }
 
+async function loadTotalVotes() {
+  const { data, error } = await supabaseClient.rpc('get_total_votes');
+
+  if (error) {
+    console.error('Could not refresh total vote count:', error);
+    return;
+  }
+
+  const total = Number(data ?? 0);
+  els.totalVotes.textContent = Number.isFinite(total) ? total.toLocaleString() : '0';
+}
+
 function getImageForEntry(index) {
   return state.images[index] || null;
 }
@@ -208,6 +221,8 @@ async function castVote(entryId) {
     state.myVote = entryId;
     showToast(changed ? 'Your vote has been recorded.' : 'That is already your selected entry.');
 
+    await loadTotalVotes();
+
     if (state.settings.show_results) {
       await loadResults();
     }
@@ -266,10 +281,15 @@ async function init() {
     await Promise.all([
       loadDriveImages(),
       loadMyVote(),
+      loadTotalVotes(),
     ]);
 
     renderEntries();
     await loadResults();
+
+    window.setInterval(() => {
+      loadTotalVotes();
+    }, 5000);
   } catch (error) {
     console.error(error);
     setStatus('closed', 'Voting page is temporarily unavailable');
