@@ -7,6 +7,97 @@
   <meta name="description" content="Ganesha Idol Competition 2026 voting" />
   <title>Ganesha Idol Competition 2026 | Vote</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    .email-gate {
+      width: min(680px, 100%);
+      margin: 0 auto 30px;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--card);
+      box-shadow: 0 12px 34px rgba(93, 44, 31, 0.10);
+    }
+
+    .email-gate label {
+      display: block;
+      margin-bottom: 9px;
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .email-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+    }
+
+    .email-row input {
+      min-width: 0;
+      min-height: 48px;
+      padding: 0 15px;
+      border: 1px solid rgba(115, 21, 23, 0.24);
+      border-radius: 13px;
+      color: var(--text);
+      background: rgba(255, 252, 246, 0.94);
+      outline: none;
+      font-size: 16px;
+    }
+
+    .email-row input:focus {
+      border-color: var(--maroon);
+      box-shadow: 0 0 0 3px rgba(149, 31, 34, 0.10);
+    }
+
+    .email-row button {
+      min-height: 48px;
+      padding: 0 21px;
+      border: 0;
+      border-radius: 13px;
+      color: #fff9f0;
+      background: linear-gradient(135deg, var(--maroon), var(--maroon-dark));
+      cursor: pointer;
+      font-weight: 800;
+    }
+
+    .email-row button:disabled,
+    .email-row input:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .email-help,
+    .email-message {
+      margin: 9px 2px 0;
+      font-size: 0.86rem;
+      line-height: 1.45;
+    }
+
+    .email-help { color: var(--muted); }
+
+    .email-message {
+      min-height: 1.25em;
+      font-weight: 700;
+    }
+
+    .email-message.success { color: #4e7a50; }
+    .email-message.error { color: var(--maroon-dark); }
+    .email-message.info { color: var(--ink); }
+
+    @media (max-width: 560px) {
+      .email-gate {
+        padding: 15px;
+        border-radius: 17px;
+      }
+
+      .email-row {
+        grid-template-columns: 1fr;
+      }
+
+      .email-row button {
+        width: 100%;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="page-shell">
@@ -42,6 +133,18 @@
         <div class="section-heading">
           <h2 id="entriesHeading">Pick your favourite!!</h2>
           <p>One vote per person.</p>
+        </div>
+
+        <div class="email-gate">
+          <form id="emailForm" novalidate>
+            <label for="emailInput">Enter your email ID</label>
+            <div class="email-row">
+              <input id="emailInput" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="name@guseducationindia.com" aria-describedby="emailHelp emailMessage" />
+              <button id="emailButton" type="submit">Continue</button>
+            </div>
+            <p id="emailHelp" class="email-help">Only @guseducationindia.com email addresses can vote.</p>
+            <p id="emailMessage" class="email-message" aria-live="polite"></p>
+          </form>
         </div>
 
         <div id="entriesGrid" class="entries-grid" aria-live="polite"></div>
