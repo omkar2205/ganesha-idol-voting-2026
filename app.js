@@ -1,6 +1,7 @@
 const SUPABASE_URL = 'https://agcmyvzfjersvwoqwkkc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_d8fd_YY_Aewl3wyp7pE-Qg_prvNRYvv';
 const ALLOWED_DOMAIN = '@guseducationindia.com';
+const MAX_ENTRIES = 12;
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -9,29 +10,33 @@ const state = {
   entries: [],
   images: [],
   voterEmail: '',
-  gatePassed: false,
   emailReady: false,
   alreadyVoted: false,
   myVote: null,
   publicStatus: null,
-  results: new Map(),
   serverOffsetMs: 0,
+  results: new Map(),
+  resultsTotal: 0,
   busy: false,
 };
 
 const els = {
+  statusBanner: document.getElementById('statusBanner'),
   statusText: document.getElementById('statusText'),
   totalVotes: document.getElementById('totalVotes'),
   countdown: document.getElementById('countdown'),
   countdownLabel: document.getElementById('countdownLabel'),
   countdownNote: document.getElementById('countdownNote'),
-  entriesGrid: document.getElementById('entriesGrid'),
-  emptyState: document.getElementById('emptyState'),
+  voterStrip: document.getElementById('voterStrip'),
+  voterStripText: document.getElementById('voterStripText'),
+  changeEmailButton: document.getElementById('changeEmailButton'),
   emailOverlay: document.getElementById('emailOverlay'),
   emailForm: document.getElementById('emailForm'),
   emailInput: document.getElementById('emailInput'),
   emailButton: document.getElementById('emailButton'),
   emailMessage: document.getElementById('emailMessage'),
+  entriesGrid: document.getElementById('entriesGrid'),
+  emptyState: document.getElementById('emptyState'),
   imageDialog: document.getElementById('imageDialog'),
   dialogImage: document.getElementById('dialogImage'),
   dialogCaption: document.getElementById('dialogCaption'),
@@ -49,10 +54,29 @@ function normalizeEmail(value) {
 
 function isAllowedEmail(value) {
   const email = normalizeEmail(value);
-  return email.length > ALLOWED_DOMAIN.length
-    && email.endsWith(ALLOWED_DOMAIN)
-    && !/\s/.test(email)
-    && (email.match(/@/g) || []).length === 1;
+  if (!email.endsWith(ALLOWED_DOMAIN)) return false;
+  if (email.length <= ALLOWED_DOMAIN.length) return false;
+  if (/\s/.test(email)) return false;
+  return (email.match(/@/g) || []).length === 1;
+}
+
+function setEmailMessage(kind, message) {
+  els.emailMessage.className = `email-message${kind ? ` ${kind}` : ''}`;
+  els.emailMessage.textContent = message || '';
+}
+
+function setStatus(kind, message) {
+  els.statusBanner.className = `status-banner ${kind}`;
+  els.statusText.textContent = message;
+}
+
+function showToast(message) {
+  els.toast.textContent = message;
+  els.toast.classList.add('show');
+  window.clearTimeout(showToast.timer);
+  showToast.timer = window.setTimeout(() => {
+    els.toast.classList.remove('show');
+  }, 2600);
 }
 
 function escapeHtml(value) {
@@ -62,18 +86,6 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
-}
-
-function showToast(message) {
-  els.toast.textContent = message;
-  els.toast.classList.add('show');
-  window.clearTimeout(showToast.timer);
-  showToast.timer = window.setTimeout(() => els.toast.classList.remove('show'), 2800);
-}
-
-function setEmailMessage(kind, message) {
-  els.emailMessage.className = `email-message${kind ? ` ${kind}` : ''}`;
-  els.emailMessage.textContent = message || '';
 }
 
 function naturalSort(a, b) {
@@ -88,15 +100,16 @@ function serverNowMs() {
 }
 
 function revealTimeMs() {
-  const raw = state.publicStatus?.results_reveal_at;
-  if (!raw) return null;
-  const value = new Date(raw).getTime();
-  return Number.isFinite(value) ? value : null;
+  const value = state.publicStatus?.results_reveal_at;
+  if (!value) return null;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function remainingMs() {
   const reveal = revealTimeMs();
-  return reveal === null ? null : Math.max(0, reveal - serverNowMs());
+  if (reveal === null) return null;
+  return Math.max(0, reveal - serverNowMs());
 }
 
 function resultsAvailable() {
@@ -112,20 +125,61 @@ function votingIsOpen() {
 }
 
 function formatCountdown(milliseconds) {
-  const total = Math.max(0, Math.ceil(milliseconds / 1000));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const seconds = total % 60;
-  if (hours > 0) {
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  }
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [hours, minutes, seconds].map((part) => String(part).padStart(2, '0')).join(':');
 }
 
 function closeEmailGate() {
-  state.gatePassed = true;
   document.body.classList.remove('gate-open');
   els.emailOverlay.hidden = true;
+  updateVoterStrip();
+}
+
+function openEmailGate() {
+  if (resultsAvailable() || !votingIsOpen()) return;
+  els.emailOverlay.hidden = false;
+  document.body.classList.add('gate-open');
+  window.setTimeout(() => els.emailInput.focus(), 60);
+}
+
+function updateVoterStrip() {
+  if (resultsAvailable() || !state.voterEmail) {
+    els.voterStrip.hidden = true;
+    return;
+  }
+
+  els.voterStrip.hidden = false;
+  els.voterStripText.textContent = state.alreadyVoted
+    ? 'Vote recorded for this email'
+    : 'Email accepted';
+}
+
+function updateEmailControls() {
+  const enabled = votingIsOpen() && !resultsAvailable();
+  els.emailInput.disabled = !enabled || state.busy;
+  els.emailButton.disabled = !enabled || state.busy;
+  updateVoterStrip();
+}
+
+function getVisibleEntries() {
+  const sortedEntries = [...state.entries].sort((a, b) => Number(a.sort_order) - Number(b.sort_order));
+  const byOrder = new Map(sortedEntries.map((entry) => [Number(entry.sort_order), entry]));
+  const entries = [];
+
+  for (let index = 1; index <= MAX_ENTRIES; index += 1) {
+    entries.push(byOrder.get(index) || {
+      id: index,
+      slug: `team-${String(index).padStart(2, '0')}`,
+      title: `Team ${String(index).padStart(2, '0')}`,
+      sort_order: index,
+      active: true,
+    });
+  }
+
+  return entries;
 }
 
 async function loadSettingsAndEntries() {
@@ -158,29 +212,46 @@ async function loadDriveImages() {
 
   const separator = feedUrl.includes('?') ? '&' : '?';
   const response = await fetch(`${feedUrl}${separator}v=${Date.now()}`, {
+    method: 'GET',
     cache: 'no-store',
   });
 
-  if (!response.ok) throw new Error('Could not load the competition photographs.');
+  if (!response.ok) {
+    throw new Error('Could not load the competition photographs.');
+  }
 
   const payload = await response.json();
   const files = Array.isArray(payload) ? payload : payload.files;
+
   state.images = (Array.isArray(files) ? files : [])
-    .filter((file) => file?.id && file?.imageUrl)
+    .filter((file) => file && file.id && file.imageUrl)
     .sort(naturalSort)
-    .slice(0, 4);
+    .slice(0, MAX_ENTRIES);
 }
 
 async function checkEmailAlreadyVoted(email) {
   const { data, error } = await supabaseClient.rpc('has_email_voted', {
     p_voter_email: email,
   });
+
   if (error) throw error;
   return Boolean(data);
 }
 
+async function loadVoteByEmail(email) {
+  const { data, error } = await supabaseClient.rpc('get_vote_by_email', {
+    p_voter_email: email,
+  });
+
+  if (error) throw error;
+  const row = Array.isArray(data) && data.length ? data[0] : null;
+  return row ? Number(row.entry_id) : null;
+}
+
 async function loadPublicStatus() {
+  const previousOpen = votingIsOpen();
   const previousResults = resultsAvailable();
+
   const { data, error } = await supabaseClient.rpc('get_public_vote_status');
   if (error) throw error;
 
@@ -188,35 +259,44 @@ async function loadPublicStatus() {
   if (!row) throw new Error('Voting status is unavailable.');
 
   const serverTime = new Date(row.server_now).getTime();
-  if (Number.isFinite(serverTime)) state.serverOffsetMs = serverTime - Date.now();
+  if (Number.isFinite(serverTime)) {
+    state.serverOffsetMs = serverTime - Date.now();
+  }
 
   state.publicStatus = row;
   expiryRefreshPending = false;
-  updateLiveDisplay();
+  updateLivePanel();
+  updateEmailControls();
 
-  if (!previousResults && resultsAvailable()) await loadResults();
+  if (resultsAvailable() || !votingIsOpen()) {
+    closeEmailGate();
+  }
+
+  const currentOpen = votingIsOpen();
+  const currentResults = resultsAvailable();
+  if (previousOpen !== currentOpen) renderEntries();
+  if (!previousResults && currentResults) await loadResults();
 }
 
-function updateLiveDisplay() {
+function updateLivePanel() {
   const total = Number(state.publicStatus?.total_votes || 0);
   els.totalVotes.textContent = Number.isFinite(total) ? total.toLocaleString() : '0';
 
   if (!state.publicStatus) {
-    els.statusText.textContent = 'Preparing the competition…';
     els.countdown.textContent = 'Waiting';
     return;
   }
 
   if (resultsAvailable()) {
-    els.statusText.textContent = 'Voting complete';
+    setStatus('closed', 'Voting has ended');
     els.countdownLabel.textContent = 'Voting ended';
-    els.countdown.textContent = '00:00';
-    els.countdownNote.textContent = 'Results are final';
+    els.countdown.textContent = '00:00:00';
+    els.countdownNote.textContent = 'Results are visible below each picture';
     return;
   }
 
   if (!state.publicStatus.first_vote_at || !state.publicStatus.results_reveal_at) {
-    els.statusText.textContent = votingIsOpen() ? 'Voting is open' : 'Voting is closed';
+    setStatus(votingIsOpen() ? 'open' : 'closed', votingIsOpen() ? 'Voting is open' : 'Voting is closed');
     els.countdownLabel.textContent = 'Countdown';
     els.countdown.textContent = 'Waiting';
     els.countdownNote.textContent = 'Starts with the first vote';
@@ -225,90 +305,137 @@ function updateLiveDisplay() {
 
   const remaining = remainingMs();
   if (remaining !== null && remaining > 0) {
-    els.statusText.textContent = 'Voting is open';
-    els.countdownLabel.textContent = 'Closes in';
+    setStatus(votingIsOpen() ? 'open' : 'closed', votingIsOpen() ? 'Voting is open' : 'Voting is closed');
+    els.countdownLabel.textContent = 'Voting closes in';
     els.countdown.textContent = formatCountdown(remaining);
-    els.countdownNote.textContent = 'Totals reveal at zero';
+    els.countdownNote.textContent = 'Team totals stay hidden until this ends';
   } else {
-    els.statusText.textContent = 'Voting complete';
+    setStatus('closed', 'Voting has ended');
     els.countdownLabel.textContent = 'Voting ended';
-    els.countdown.textContent = '00:00';
-    els.countdownNote.textContent = 'Preparing results';
+    els.countdown.textContent = '00:00:00';
+    els.countdownNote.textContent = 'Preparing results…';
   }
 }
 
-function resultForEntry(entryId) {
-  return state.results.get(Number(entryId)) || null;
+function tickCountdown() {
+  const wasOpen = votingIsOpen();
+  updateLivePanel();
+  updateEmailControls();
+  const isOpen = votingIsOpen();
+
+  if (wasOpen !== isOpen) renderEntries();
+
+  if (state.publicStatus?.results_reveal_at && remainingMs() === 0 && !state.publicStatus.results_available && !expiryRefreshPending) {
+    expiryRefreshPending = true;
+    loadPublicStatus().catch((error) => {
+      expiryRefreshPending = false;
+      console.error('Could not refresh final voting status:', error);
+    });
+  }
+}
+
+function getImageForEntry(index) {
+  return state.images[index] || null;
+}
+
+function renderPlaceholder(entry) {
+  const number = String(entry.sort_order || entry.id).padStart(2, '0');
+  return `
+    <div class="placeholder-visual" aria-label="Placeholder for ${escapeHtml(entry.title)}">
+      <span class="placeholder-stack">
+        <span class="placeholder-symbol">ॐ</span>
+        <span class="placeholder-text">Photo coming soon</span>
+      </span>
+    </div>
+    <span class="entry-number">${number}</span>
+  `;
+}
+
+function renderEntryResult(entryId) {
+  if (!resultsAvailable()) return '';
+
+  const result = state.results.get(Number(entryId));
+  const votes = Number(result?.vote_count || 0);
+  const total = Number(state.resultsTotal || 0);
+  const percentage = total ? Math.round((votes / total) * 100) : 0;
+  const width = total ? Math.max(0, Math.min(100, (votes / total) * 100)) : 0;
+
+  return `
+    <div class="entry-result">
+      <div class="result-line">
+        <span class="result-number">${votes.toLocaleString()} votes</span>
+        <span class="result-percent">${percentage}%</span>
+      </div>
+      <div class="result-track" aria-hidden="true"><span class="result-fill" style="width:${width}%"></span></div>
+    </div>
+  `;
 }
 
 function renderEntries() {
   els.entriesGrid.innerHTML = '';
 
-  if (!state.images.length) {
+  const visibleEntries = getVisibleEntries();
+  if (!visibleEntries.length) {
     els.emptyState.hidden = false;
     return;
   }
 
   els.emptyState.hidden = true;
-  const visibleEntries = state.entries.slice(0, state.images.length);
-  const canVote = state.gatePassed && votingIsOpen() && state.emailReady && !state.alreadyVoted && !state.busy;
-  const showResults = resultsAvailable() && state.results.size > 0;
+  const votingOpen = votingIsOpen();
+  const canVote = votingOpen && state.emailReady && !state.alreadyVoted && !state.busy;
 
   visibleEntries.forEach((entry, index) => {
-    const image = state.images[index];
-    if (!image) return;
-
+    const image = getImageForEntry(index);
+    const hasImage = Boolean(image?.imageUrl);
     const selected = state.myVote === Number(entry.id);
-    const result = resultForEntry(entry.id);
-
-    let buttonText = 'Vote';
-    let detailText = 'Tap the photograph to view larger';
-
-    if (!state.gatePassed) buttonText = 'Enter email to vote';
-    else if (!votingIsOpen()) buttonText = 'Voting closed';
-    else if (selected) {
-      buttonText = 'Vote cast';
-      detailText = 'Your vote is locked';
-    } else if (state.alreadyVoted) {
-      buttonText = 'Vote locked';
-      detailText = 'This email has already voted';
-    } else if (!state.emailReady) {
-      buttonText = 'Vote unavailable';
-    }
-
     const article = document.createElement('article');
     article.className = `entry-card${selected ? ' selected' : ''}`;
+    article.dataset.entryId = entry.id;
+
+    let buttonText = 'Enter email to vote';
+    if (resultsAvailable() || !votingOpen) buttonText = 'Voting closed';
+    else if (selected) buttonText = 'Vote cast';
+    else if (state.alreadyVoted) buttonText = 'Vote locked';
+    else if (state.emailReady) buttonText = 'Vote';
+
+    let detailText = hasImage ? 'Tap image to view larger' : 'Placeholder until photo is uploaded';
+    if (resultsAvailable()) detailText = 'Final result';
+    else if (selected) detailText = 'Your vote is locked';
+    else if (state.alreadyVoted) detailText = 'This email has already voted';
+
+    const mediaContent = hasImage
+      ? `<img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(entry.title)} Ganesha idol" loading="lazy" decoding="async" />
+         <span class="entry-number">${String(entry.sort_order).padStart(2, '0')}</span>`
+      : renderPlaceholder(entry);
+
     article.innerHTML = `
-      <div class="entry-media" role="button" tabindex="0" aria-label="View ${escapeHtml(entry.title)} image">
-        <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(entry.title)} Ganesha idol" loading="lazy" decoding="async" />
-        <span class="entry-number">${String(entry.sort_order).padStart(2, '0')}</span>
+      <div class="entry-media${hasImage ? ' has-image' : ''}" ${hasImage ? `role="button" tabindex="0" aria-label="View ${escapeHtml(entry.title)} image"` : ''}>
+        ${mediaContent}
       </div>
-      <div class="entry-footer">
-        <div>
-          <h3 class="entry-title">${escapeHtml(entry.title)}</h3>
-          <p class="entry-detail">${detailText}</p>
+      ${renderEntryResult(entry.id)}
+      <div class="entry-body">
+        <div class="entry-copy">
+          <h2 class="entry-title">${escapeHtml(entry.title)}</h2>
+          <p>${detailText}</p>
         </div>
         <button class="vote-button" type="button" ${canVote ? '' : 'disabled'}>${buttonText}</button>
       </div>
-      ${showResults && result ? `
-        <div class="entry-final">
-          <span>Final result</span>
-          <strong>${Number(result.vote_count).toLocaleString()} votes · ${result.percentage}%</strong>
-        </div>
-      ` : ''}
     `;
 
     const media = article.querySelector('.entry-media');
     const voteButton = article.querySelector('.vote-button');
-    const openImage = () => showImage(image.imageUrl, entry.title);
 
-    media.addEventListener('click', openImage);
-    media.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        openImage();
-      }
-    });
+    if (hasImage) {
+      const openImage = () => showImage(image.imageUrl, entry.title);
+      media.addEventListener('click', openImage);
+      media.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openImage();
+        }
+      });
+    }
+
     voteButton.addEventListener('click', () => castVote(Number(entry.id)));
     els.entriesGrid.appendChild(article);
   });
@@ -318,69 +445,122 @@ function showImage(src, caption) {
   els.dialogImage.src = src;
   els.dialogImage.alt = `${caption} Ganesha idol`;
   els.dialogCaption.textContent = caption;
-  if (typeof els.imageDialog.showModal === 'function') els.imageDialog.showModal();
-  else els.imageDialog.setAttribute('open', '');
+
+  if (typeof els.imageDialog.showModal === 'function') {
+    els.imageDialog.showModal();
+  } else {
+    els.imageDialog.setAttribute('open', '');
+  }
 }
 
 function closeImage() {
-  if (typeof els.imageDialog.close === 'function') els.imageDialog.close();
-  else els.imageDialog.removeAttribute('open');
+  if (typeof els.imageDialog.close === 'function') {
+    els.imageDialog.close();
+  } else {
+    els.imageDialog.removeAttribute('open');
+  }
 }
 
 async function handleEmailSubmit(event) {
   event.preventDefault();
-  if (state.busy) return;
+
+  if (!votingIsOpen()) {
+    setEmailMessage('error', 'Voting is closed.');
+    return;
+  }
 
   const email = normalizeEmail(els.emailInput.value);
   if (!isAllowedEmail(email)) {
+    state.voterEmail = '';
+    state.emailReady = false;
+    state.alreadyVoted = false;
+    state.myVote = null;
     setEmailMessage('error', 'Please enter a valid @guseducationindia.com email address.');
+    renderEntries();
     return;
   }
 
   state.busy = true;
-  els.emailInput.disabled = true;
-  els.emailButton.disabled = true;
-  setEmailMessage('', '');
+  state.voterEmail = email;
+  state.emailReady = false;
+  state.alreadyVoted = false;
+  state.myVote = null;
+  updateEmailControls();
+  renderEntries();
 
   try {
-    state.voterEmail = email;
+    const alreadyVoted = await checkEmailAlreadyVoted(email);
+    state.alreadyVoted = alreadyVoted;
+    state.emailReady = !alreadyVoted;
 
-    if (resultsAvailable() || !votingIsOpen()) {
-      state.emailReady = false;
-      state.alreadyVoted = false;
-      closeEmailGate();
-      renderEntries();
-      return;
+    if (alreadyVoted) {
+      state.myVote = await loadVoteByEmail(email);
+      setEmailMessage('error', 'This email address has already voted.');
+    } else {
+      setEmailMessage('success', 'Email accepted. Pick your favourite below.');
     }
 
-    state.alreadyVoted = await checkEmailAlreadyVoted(email);
-    state.emailReady = !state.alreadyVoted;
     closeEmailGate();
-    renderEntries();
-
-    if (state.alreadyVoted) {
-      showToast('This email has already voted. You can view the competition, but cannot vote again.');
-    }
   } catch (error) {
     console.error(error);
     state.voterEmail = '';
+    state.emailReady = false;
+    state.alreadyVoted = false;
+    state.myVote = null;
     setEmailMessage('error', error?.message || 'Could not check this email. Please try again.');
   } finally {
     state.busy = false;
-    els.emailInput.disabled = false;
-    els.emailButton.disabled = false;
+    updateEmailControls();
+    renderEntries();
   }
 }
 
-async function castVote(entryId) {
-  if (state.busy || !state.emailReady || state.alreadyVoted || !votingIsOpen()) return;
+function handleEmailInput() {
+  const current = normalizeEmail(els.emailInput.value);
+  if (current === state.voterEmail) return;
 
-  const entry = state.entries.find((item) => Number(item.id) === Number(entryId));
-  const name = entry?.title || 'this entry';
-  const confirmed = window.confirm(`Confirm your vote for ${name}? Once submitted, your vote cannot be changed.`);
+  state.voterEmail = '';
+  state.emailReady = false;
+  state.alreadyVoted = false;
+  state.myVote = null;
+  setEmailMessage('', '');
+  updateVoterStrip();
+  renderEntries();
+}
+
+function handleChangeEmail() {
+  state.voterEmail = '';
+  state.emailReady = false;
+  state.alreadyVoted = false;
+  state.myVote = null;
+  els.emailInput.value = '';
+  setEmailMessage('', '');
+  updateVoterStrip();
+  renderEntries();
+  openEmailGate();
+}
+
+async function castVote(entryId) {
+  if (state.busy || !votingIsOpen()) return;
+
+  if (!state.voterEmail || !state.emailReady) {
+    showToast('Enter your work email and press Continue first.');
+    openEmailGate();
+    return;
+  }
+
+  if (state.alreadyVoted) {
+    showToast('This email address has already voted.');
+    return;
+  }
+
+  const entry = getVisibleEntries().find((item) => Number(item.id) === Number(entryId));
+  const entryName = entry?.title || 'this team';
+  const confirmed = window.confirm(`Confirm your vote for ${entryName}? Once submitted, your vote cannot be changed.`);
   if (!confirmed) return;
 
   state.busy = true;
+  updateEmailControls();
   renderEntries();
 
   try {
@@ -388,31 +568,37 @@ async function castVote(entryId) {
       p_entry_id: entryId,
       p_voter_email: state.voterEmail,
     });
+
     if (error) throw error;
 
     state.myVote = entryId;
     state.alreadyVoted = true;
     state.emailReady = false;
-    showToast('Your vote has been recorded.');
+    showToast('Your vote has been recorded and locked.');
+
     await loadPublicStatus();
   } catch (error) {
     console.error(error);
-    const message = String(error?.message || 'Your vote could not be recorded. Please try again.');
-    if (message.toLowerCase().includes('already voted')) {
+
+    if (String(error?.message || '').toLowerCase().includes('already voted')) {
       state.alreadyVoted = true;
       state.emailReady = false;
+      state.myVote = await loadVoteByEmail(state.voterEmail).catch(() => null);
     }
-    showToast(message);
+
+    showToast(error?.message || 'Your vote could not be recorded. Please try again.');
     await loadPublicStatus().catch(() => {});
   } finally {
     state.busy = false;
+    updateEmailControls();
     renderEntries();
   }
 }
 
 async function loadResults() {
   if (!resultsAvailable()) {
-    state.results.clear();
+    state.results = new Map();
+    state.resultsTotal = 0;
     renderEntries();
     return;
   }
@@ -423,40 +609,16 @@ async function loadResults() {
     return;
   }
 
-  const rows = Array.isArray(data) ? data : [];
-  const total = rows.reduce((sum, row) => sum + Number(row.vote_count || 0), 0);
-  state.results.clear();
-
-  rows.forEach((row) => {
-    const votes = Number(row.vote_count || 0);
-    state.results.set(Number(row.entry_id), {
-      ...row,
-      percentage: total ? Math.round((votes / total) * 100) : 0,
-    });
-  });
-
+  const results = Array.isArray(data) ? data : [];
+  state.results = new Map(results.map((item) => [Number(item.entry_id), item]));
+  state.resultsTotal = results.reduce((sum, item) => sum + Number(item.vote_count || 0), 0);
   renderEntries();
-}
-
-function tickCountdown() {
-  updateLiveDisplay();
-
-  if (state.publicStatus?.results_reveal_at && remainingMs() === 0 && !state.publicStatus.results_available && !expiryRefreshPending) {
-    expiryRefreshPending = true;
-    loadPublicStatus()
-      .then(() => loadResults())
-      .catch((error) => {
-        expiryRefreshPending = false;
-        console.error('Could not refresh final voting status:', error);
-      });
-  }
 }
 
 async function refreshStatusQuietly() {
   try {
     await loadPublicStatus();
     if (resultsAvailable()) await loadResults();
-    else renderEntries();
   } catch (error) {
     console.error('Could not refresh voting status:', error);
   }
@@ -465,25 +627,38 @@ async function refreshStatusQuietly() {
 async function init() {
   try {
     await loadSettingsAndEntries();
-    await Promise.all([loadDriveImages(), loadPublicStatus()]);
+    await Promise.all([
+      loadDriveImages(),
+      loadPublicStatus(),
+    ]);
+
+    if (resultsAvailable() || !votingIsOpen()) {
+      closeEmailGate();
+    } else {
+      openEmailGate();
+    }
+
     renderEntries();
-    if (resultsAvailable()) await loadResults();
+    await loadResults();
+    updateEmailControls();
 
     countdownTimer = window.setInterval(tickCountdown, 1000);
-    statusPollTimer = window.setInterval(refreshStatusQuietly, 4000);
+    statusPollTimer = window.setInterval(refreshStatusQuietly, 5000);
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') refreshStatusQuietly();
     });
   } catch (error) {
     console.error(error);
-    els.statusText.textContent = 'Voting page is temporarily unavailable';
+    setStatus('closed', 'Voting page is temporarily unavailable');
     els.emptyState.hidden = false;
-    setEmailMessage('error', 'The voting page could not be loaded. Please refresh and try again.');
+    updateEmailControls();
   }
 }
 
 els.emailForm.addEventListener('submit', handleEmailSubmit);
+els.emailInput.addEventListener('input', handleEmailInput);
+els.changeEmailButton.addEventListener('click', handleChangeEmail);
 els.closeDialog.addEventListener('click', closeImage);
 els.imageDialog.addEventListener('click', (event) => {
   if (event.target === els.imageDialog) closeImage();
