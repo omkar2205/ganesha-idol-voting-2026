@@ -17,16 +17,25 @@
     </header>
 
     <main>
-      <div id="statusBanner" class="status-banner loading" aria-live="polite">
-        <span class="status-dot"></span>
-        <span id="statusText">Preparing the competition…</span>
-      </div>
-
-      <aside class="vote-counter-fixed" aria-label="Total votes cast">
+      <aside class="vote-counter-fixed" aria-label="Live voting status">
+        <div id="statusBanner" class="status-banner loading" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="statusText">Preparing…</span>
+        </div>
         <span class="counter-label">Votes cast</span>
         <strong id="totalVotes" class="counter-number" aria-live="polite">0</strong>
         <span class="counter-note">Live total</span>
       </aside>
+
+      <section id="entriesSection" class="entries-section" aria-label="Voting entries">
+        <div id="entriesGrid" class="entries-grid" aria-live="polite"></div>
+
+        <div id="emptyState" class="empty-state" hidden>
+          <div class="empty-symbol">ॐ</div>
+          <h2>Entries are being prepared</h2>
+          <p>The competition photographs will appear here shortly.</p>
+        </div>
+      </section>
 
       <section class="timer-stage" aria-label="Voting countdown">
         <article class="timer-panel">
@@ -37,16 +46,6 @@
             <span id="countdownNote" class="timer-note">Starts with the first vote</span>
           </div>
         </article>
-      </section>
-
-      <section id="entriesSection" class="entries-section" aria-label="Voting entries">
-        <div id="entriesGrid" class="entries-grid" aria-live="polite"></div>
-
-        <div id="emptyState" class="empty-state" hidden>
-          <div class="empty-symbol">ॐ</div>
-          <h2>Entries are being prepared</h2>
-          <p>The competition photographs will appear here shortly.</p>
-        </div>
       </section>
     </main>
   </div>
