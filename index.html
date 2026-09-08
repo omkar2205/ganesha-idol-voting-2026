@@ -3,73 +3,85 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#8b1f21" />
+  <meta name="theme-color" content="#8f1f1f" />
   <meta name="description" content="Ganesha Idol Competition 2026 voting" />
   <title>Ganesha Idol Competition 2026 | Vote</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body class="gate-open">
-  <div id="siteShell" class="site-canvas">
-    <img class="corner-art corner-art-left" src="https://drive.google.com/thumbnail?id=1E3Hd1mfELy9-KTKyk5zP-yXopY95xUnN&sz=w1000" alt="" aria-hidden="true" />
-    <img class="corner-art corner-art-right" src="https://drive.google.com/thumbnail?id=1E3Hd1mfELy9-KTKyk5zP-yXopY95xUnN&sz=w1000" alt="" aria-hidden="true" />
+  <div id="siteShell" class="site-shell">
+    <img class="festival-corner festival-corner-top" src="https://drive.google.com/thumbnail?id=1E3Hd1mfELy9-KTKyk5zP-yXopY95xUnN&sz=w1200" alt="" aria-hidden="true" />
 
-    <main class="page-shell">
-      <header class="competition-header">
-        <p id="statusText" class="status-line" aria-live="polite">Preparing the competition…</p>
+    <header class="site-header">
+      <div class="brand-line">
+        <span class="brand-pill">Ganesha Idol Competition 2026</span>
+        <img class="gosh-logo" src="https://drive.google.com/thumbnail?id=1cudy8JFpAuCcU9rKHm25turPsoJkmyJo&sz=w1000" alt="GOSH - GUS On Staff Happiness" />
+      </div>
+
+      <div class="hero-copy">
         <h1>Ganesha Idol Competition</h1>
-        <div class="title-rule" aria-hidden="true"><span></span></div>
-        <h2>Pick your favourite!!</h2>
-        <p>One vote per person.</p>
-      </header>
+        <p class="hero-subtitle">Pick your favourite!!</p>
+        <p class="hero-note">One vote per person.</p>
+      </div>
+    </header>
 
-      <section class="voting-layout" aria-label="Competition voting">
-        <aside class="side-art vote-side" aria-label="Total votes cast">
-          <div class="ladoo-wrap">
-            <img src="https://drive.google.com/thumbnail?id=1E76SZkKrhACJ-aV-1NBpoBfxurM9tVRP&sz=w1000" alt="Decorative ladoo box" />
-            <div class="vote-seal">
-              <span>Votes</span>
-              <strong id="totalVotes" aria-live="polite">0</strong>
-            </div>
+    <main>
+      <div id="statusBanner" class="status-banner loading" aria-live="polite">
+        <span class="status-dot"></span>
+        <span id="statusText">Preparing the competition…</span>
+      </div>
+
+      <div id="voterStrip" class="voter-strip" hidden>
+        <span id="voterStripText">Email accepted</span>
+        <button id="changeEmailButton" type="button">Change email</button>
+      </div>
+
+      <section class="festival-dashboard" aria-label="Live voting status">
+        <article class="festival-panel ladoo-panel">
+          <img class="panel-art ladoo-art" src="https://drive.google.com/thumbnail?id=1E76SZkKrhACJ-aV-1NBpoBfxurM9tVRP&sz=w900" alt="" aria-hidden="true" />
+          <div class="panel-copy ladoo-copy">
+            <span class="panel-label">Votes cast</span>
+            <strong id="totalVotes" class="panel-number" aria-live="polite">0</strong>
+            <span class="panel-note">Live total</span>
           </div>
-        </aside>
+        </article>
 
-        <section id="entriesSection" class="entries-section" aria-label="Voting entries">
-          <div id="entriesGrid" class="entries-grid" aria-live="polite"></div>
-
-          <div id="emptyState" class="empty-state" hidden>
-            <div class="empty-symbol">ॐ</div>
-            <h3>Entries are being prepared</h3>
-            <p>The competition photographs will appear here shortly.</p>
+        <article class="festival-panel timer-panel">
+          <img class="panel-art mooshak-art" src="https://drive.google.com/thumbnail?id=1i--uXoRIikTgOX7yJ6TQngBY5uzHuOIa&sz=w900" alt="" aria-hidden="true" />
+          <div class="timer-on-board">
+            <span id="countdownLabel" class="panel-label">Countdown</span>
+            <strong id="countdown" class="timer-number" aria-live="polite">Waiting</strong>
+            <span id="countdownNote" class="panel-note">Starts with the first vote</span>
           </div>
-        </section>
+        </article>
+      </section>
 
-        <aside class="side-art timer-side" aria-label="Voting countdown">
-          <div class="mooshak-wrap">
-            <img src="https://drive.google.com/thumbnail?id=1i--uXoRIikTgOX7yJ6TQngBY5uzHuOIa&sz=w1000" alt="Mooshak holding the voting timer" />
-            <div class="timer-on-board">
-              <span id="countdownLabel">Countdown</span>
-              <strong id="countdown" aria-live="polite">Waiting</strong>
-              <small id="countdownNote">Starts with the first vote</small>
-            </div>
-          </div>
-        </aside>
+      <section id="entriesSection" class="entries-section" aria-label="Voting entries">
+        <div id="entriesGrid" class="entries-grid" aria-live="polite"></div>
+
+        <div id="emptyState" class="empty-state" hidden>
+          <div class="empty-symbol">ॐ</div>
+          <h2>Entries are being prepared</h2>
+          <p>The competition photographs will appear here shortly.</p>
+        </div>
       </section>
     </main>
   </div>
 
   <div id="emailOverlay" class="email-overlay" role="dialog" aria-modal="true" aria-labelledby="emailTitle">
-    <div class="email-panel">
-      <img class="email-art" src="https://drive.google.com/thumbnail?id=1E3Hd1mfELy9-KTKyk5zP-yXopY95xUnN&sz=w1000" alt="" aria-hidden="true" />
-      <div class="email-copy">
-        <p class="email-kicker">Ganesha Idol Competition</p>
-        <h2 id="emailTitle">Enter your email ID</h2>
-        <p class="email-intro">Use your GUS Education India email to enter the voting page.</p>
-      </div>
+    <div class="email-card">
+      <span class="email-symbol" aria-hidden="true">ॐ</span>
+      <img class="email-logo" src="https://drive.google.com/thumbnail?id=1cudy8JFpAuCcU9rKHm25turPsoJkmyJo&sz=w800" alt="GOSH" />
+      <p class="email-kicker">Ganesha Idol Competition</p>
+      <h2 id="emailTitle">Enter your email ID</h2>
+      <p class="email-intro">Use your GUS Education India email to continue.</p>
 
       <form id="emailForm" novalidate>
         <label class="sr-only" for="emailInput">GUS Education India email address</label>
-        <input id="emailInput" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="name@guseducationindia.com" aria-describedby="emailHelp emailMessage" autofocus />
-        <button id="emailButton" type="submit">Enter voting</button>
+        <div class="email-row">
+          <input id="emailInput" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="name@guseducationindia.com" aria-describedby="emailHelp emailMessage" autofocus />
+          <button id="emailButton" type="submit">Continue</button>
+        </div>
         <p id="emailHelp" class="email-help">Only @guseducationindia.com email addresses can vote.</p>
         <p id="emailMessage" class="email-message" aria-live="polite"></p>
       </form>
