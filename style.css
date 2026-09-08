@@ -30,7 +30,7 @@ body {
   margin: 0;
   min-width: 300px;
   min-height: 100vh;
-  padding-bottom: 112px;
+  padding-bottom: 126px;
   overflow-x: hidden;
   color: var(--text);
   font-family: Aptos, "Segoe UI", Arial, sans-serif;
@@ -74,7 +74,7 @@ img {
   position: relative;
   width: min(1440px, calc(100% - clamp(20px, 4vw, 64px)));
   margin: 0 auto;
-  padding: 0 env(safe-area-inset-right) 34px env(safe-area-inset-left);
+  padding: 0 env(safe-area-inset-right) 36px env(safe-area-inset-left);
   transition: filter 240ms ease, transform 240ms ease, opacity 240ms ease;
 }
 
@@ -92,15 +92,12 @@ body.gate-open .site-shell {
 
 .festival-corner {
   position: fixed;
+  top: 0;
+  left: 0;
   z-index: -1;
   width: min(520px, 45vw);
   opacity: 0.42;
   pointer-events: none;
-}
-
-.festival-corner-top {
-  top: 0;
-  left: 0;
 }
 
 .site-header {
@@ -200,18 +197,23 @@ body.gate-open .site-shell {
 }
 
 .timer-stage {
-  position: fixed;
-  right: max(10px, env(safe-area-inset-right));
-  bottom: max(8px, env(safe-area-inset-bottom));
-  z-index: 41;
-  width: clamp(156px, 17vw, 230px);
+  position: fixed !important;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(0px, env(safe-area-inset-bottom));
+  z-index: 46;
+  display: block;
+  width: clamp(190px, 15vw, 272px);
+  margin: 0 !important;
+  padding: 0;
   pointer-events: none;
+  transform: translateY(8px);
 }
 
 .timer-panel {
   position: relative;
   width: 100%;
   aspect-ratio: 561 / 701;
+  margin: 0;
 }
 
 .mooshak-art {
@@ -229,8 +231,8 @@ body.gate-open .site-shell {
   left: 52.5%;
   top: 60.8%;
   width: 47%;
-  max-width: 120px;
-  min-height: 52px;
+  max-width: 132px;
+  min-height: 58px;
   transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
@@ -247,7 +249,7 @@ body.gate-open .site-shell {
   display: block;
   max-width: 100%;
   color: var(--terracotta);
-  font-size: clamp(0.38rem, 0.62vw, 0.52rem);
+  font-size: clamp(0.38rem, 0.56vw, 0.54rem);
   font-weight: 950;
   line-height: 1.05;
   letter-spacing: 0.06em;
@@ -257,7 +259,7 @@ body.gate-open .site-shell {
 
 .timer-note {
   color: var(--muted);
-  font-size: clamp(0.36rem, 0.55vw, 0.46rem);
+  font-size: clamp(0.36rem, 0.52vw, 0.48rem);
   letter-spacing: 0;
   text-transform: none;
   white-space: normal;
@@ -268,7 +270,7 @@ body.gate-open .site-shell {
   width: 100%;
   color: var(--maroon-dark);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(0.82rem, 1.55vw, 1.18rem);
+  font-size: clamp(0.9rem, 1.32vw, 1.22rem);
   font-weight: 900;
   line-height: 1;
   letter-spacing: 0.01em;
@@ -743,11 +745,19 @@ body.gate-open .site-shell {
   }
 
   .timer-stage {
-    width: clamp(132px, 28vw, 180px);
+    right: 8px;
+    bottom: max(0px, env(safe-area-inset-bottom));
+    width: clamp(138px, 27vw, 188px);
+    transform: translateY(6px);
   }
 
   .timer-on-board {
     width: 48%;
+    min-height: 44px;
+  }
+
+  .timer-note {
+    display: none;
   }
 
   .entries-grid {
@@ -758,12 +768,12 @@ body.gate-open .site-shell {
 
 @media (max-width: 560px) {
   body {
-    padding-bottom: 96px;
+    padding-bottom: 104px;
   }
 
   .site-shell {
     width: min(100% - 18px, 1440px);
-    padding-bottom: 26px;
+    padding-bottom: 28px;
   }
 
   .site-header {
@@ -813,9 +823,10 @@ body.gate-open .site-shell {
   }
 
   .timer-stage {
-    right: 4px;
-    bottom: max(2px, env(safe-area-inset-bottom));
-    width: clamp(118px, 35vw, 148px);
+    right: 2px;
+    bottom: max(0px, env(safe-area-inset-bottom));
+    width: clamp(116px, 34vw, 150px);
+    transform: translateY(5px);
   }
 
   .timer-on-board {
@@ -871,7 +882,10 @@ body.gate-open .site-shell {
   }
 
   .timer-stage {
-    width: 132px;
+    right: 8px;
+    bottom: 0;
+    width: 138px;
+    transform: translateY(7px);
   }
 
   .vote-counter-fixed {
