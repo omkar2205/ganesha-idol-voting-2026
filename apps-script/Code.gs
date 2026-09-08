@@ -1,5 +1,5 @@
 const FOLDER_ID = '1VSzL0_kOhF3v_GuAJV4ReRvQbB0ea3x-';
-const MAX_IMAGES = 4;
+const MAX_IMAGES = 12;
 
 function doGet() {
   const files = [];
