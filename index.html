@@ -7,6 +7,7 @@
   <meta name="description" content="Ganesha Idol Competition 2026 voting" />
   <title>Ganesha Idol Competition 2026 | Vote</title>
   <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="site-overrides.css" />
 </head>
 <body class="gate-open">
   <div id="siteShell" class="site-shell">
@@ -31,7 +32,7 @@
         <div id="entriesGrid" class="entries-grid" aria-live="polite"></div>
 
         <div id="emptyState" class="empty-state" hidden>
-          <div class="empty-symbol">ॐ</div>
+          <img class="empty-elephant elephant-ui" src="https://drive.google.com/thumbnail?id=1BodiuRQPzWt0wYjGOJ-dSt16JaUz3Mpg&sz=w512" alt="" aria-hidden="true" />
           <h2>Entries are being prepared</h2>
           <p>The competition photographs will appear here shortly.</p>
         </div>
@@ -52,7 +53,7 @@
 
   <div id="emailOverlay" class="email-overlay" role="dialog" aria-modal="true" aria-labelledby="emailTitle">
     <div class="email-card">
-      <span class="email-symbol" aria-hidden="true">ॐ</span>
+      <img class="email-elephant elephant-ui" src="https://drive.google.com/thumbnail?id=1BodiuRQPzWt0wYjGOJ-dSt16JaUz3Mpg&sz=w512" alt="" aria-hidden="true" />
       <img class="email-logo" src="https://drive.google.com/thumbnail?id=1cudy8JFpAuCcU9rKHm25turPsoJkmyJo&sz=w800" alt="GOSH" />
       <h2 id="emailTitle">Enter your email ID</h2>
       <p class="email-intro">Use your GUS Education India email to continue.</p>
@@ -79,5 +80,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
+  <script src="nonreligious.js"></script>
 </body>
 </html>
