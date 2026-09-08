@@ -2,6 +2,7 @@ const SUPABASE_URL = 'https://agcmyvzfjersvwoqwkkc.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_d8fd_YY_Aewl3wyp7pE-Qg_prvNRYvv';
 const ALLOWED_DOMAIN = '@guseducationindia.com';
 const MAX_ENTRIES = 12;
+const EMAIL_STORAGE_KEY = 'ganesha-idol-locked-email-v1';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -27,9 +28,6 @@ const els = {
   countdown: document.getElementById('countdown'),
   countdownLabel: document.getElementById('countdownLabel'),
   countdownNote: document.getElementById('countdownNote'),
-  voterStrip: document.getElementById('voterStrip'),
-  voterStripText: document.getElementById('voterStripText'),
-  changeEmailButton: document.getElementById('changeEmailButton'),
   emailOverlay: document.getElementById('emailOverlay'),
   emailForm: document.getElementById('emailForm'),
   emailInput: document.getElementById('emailInput'),
@@ -58,6 +56,25 @@ function isAllowedEmail(value) {
   if (email.length <= ALLOWED_DOMAIN.length) return false;
   if (/\s/.test(email)) return false;
   return (email.match(/@/g) || []).length === 1;
+}
+
+function getStoredEmail() {
+  try {
+    const stored = normalizeEmail(localStorage.getItem(EMAIL_STORAGE_KEY));
+    if (stored && isAllowedEmail(stored)) return stored;
+    if (stored) localStorage.removeItem(EMAIL_STORAGE_KEY);
+  } catch (error) {
+    console.warn('Could not read locked email:', error);
+  }
+  return '';
+}
+
+function storeEmailForBrowser(email) {
+  try {
+    localStorage.setItem(EMAIL_STORAGE_KEY, normalizeEmail(email));
+  } catch (error) {
+    console.warn('Could not lock email to this browser:', error);
+  }
 }
 
 function setEmailMessage(kind, message) {
@@ -135,33 +152,23 @@ function formatCountdown(milliseconds) {
 function closeEmailGate() {
   document.body.classList.remove('gate-open');
   els.emailOverlay.hidden = true;
-  updateVoterStrip();
 }
 
 function openEmailGate() {
-  if (resultsAvailable() || !votingIsOpen()) return;
+  if (state.voterEmail || resultsAvailable() || !votingIsOpen()) {
+    closeEmailGate();
+    return;
+  }
+
   els.emailOverlay.hidden = false;
   document.body.classList.add('gate-open');
   window.setTimeout(() => els.emailInput.focus(), 60);
 }
 
-function updateVoterStrip() {
-  if (resultsAvailable() || !state.voterEmail) {
-    els.voterStrip.hidden = true;
-    return;
-  }
-
-  els.voterStrip.hidden = false;
-  els.voterStripText.textContent = state.alreadyVoted
-    ? 'Vote recorded for this email'
-    : 'Email accepted';
-}
-
 function updateEmailControls() {
-  const enabled = votingIsOpen() && !resultsAvailable();
+  const enabled = votingIsOpen() && !resultsAvailable() && !state.voterEmail;
   els.emailInput.disabled = !enabled || state.busy;
   els.emailButton.disabled = !enabled || state.busy;
-  updateVoterStrip();
 }
 
 function getVisibleEntries() {
@@ -248,6 +255,24 @@ async function loadVoteByEmail(email) {
   return row ? Number(row.entry_id) : null;
 }
 
+async function applyLockedBrowserEmail() {
+  const lockedEmail = getStoredEmail();
+  if (!lockedEmail) return;
+
+  state.voterEmail = lockedEmail;
+  state.emailReady = false;
+  state.alreadyVoted = false;
+  state.myVote = null;
+
+  const alreadyVoted = await checkEmailAlreadyVoted(lockedEmail);
+  state.alreadyVoted = alreadyVoted;
+  state.emailReady = !alreadyVoted && votingIsOpen() && !resultsAvailable();
+
+  if (alreadyVoted) {
+    state.myVote = await loadVoteByEmail(lockedEmail).catch(() => null);
+  }
+}
+
 async function loadPublicStatus() {
   const previousOpen = votingIsOpen();
   const previousResults = resultsAvailable();
@@ -268,7 +293,7 @@ async function loadPublicStatus() {
   updateLivePanel();
   updateEmailControls();
 
-  if (resultsAvailable() || !votingIsOpen()) {
+  if (resultsAvailable() || !votingIsOpen() || state.voterEmail) {
     closeEmailGate();
   }
 
@@ -402,6 +427,7 @@ function renderEntries() {
     if (resultsAvailable()) detailText = 'Final result';
     else if (selected) detailText = 'Your vote is locked';
     else if (state.alreadyVoted) detailText = 'This email has already voted';
+    else if (state.voterEmail && state.emailReady) detailText = 'Ready to vote';
 
     const mediaContent = hasImage
       ? `<img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(entry.title)} Ganesha idol" loading="lazy" decoding="async" />
@@ -464,6 +490,11 @@ function closeImage() {
 async function handleEmailSubmit(event) {
   event.preventDefault();
 
+  if (state.voterEmail) {
+    closeEmailGate();
+    return;
+  }
+
   if (!votingIsOpen()) {
     setEmailMessage('error', 'Voting is closed.');
     return;
@@ -471,36 +502,30 @@ async function handleEmailSubmit(event) {
 
   const email = normalizeEmail(els.emailInput.value);
   if (!isAllowedEmail(email)) {
-    state.voterEmail = '';
-    state.emailReady = false;
-    state.alreadyVoted = false;
-    state.myVote = null;
     setEmailMessage('error', 'Please enter a valid @guseducationindia.com email address.');
     renderEntries();
     return;
   }
 
   state.busy = true;
-  state.voterEmail = email;
-  state.emailReady = false;
-  state.alreadyVoted = false;
-  state.myVote = null;
   updateEmailControls();
   renderEntries();
 
   try {
     const alreadyVoted = await checkEmailAlreadyVoted(email);
+    state.voterEmail = email;
+    storeEmailForBrowser(email);
     state.alreadyVoted = alreadyVoted;
-    state.emailReady = !alreadyVoted;
+    state.emailReady = !alreadyVoted && votingIsOpen() && !resultsAvailable();
 
     if (alreadyVoted) {
       state.myVote = await loadVoteByEmail(email);
-      setEmailMessage('error', 'This email address has already voted.');
     } else {
-      setEmailMessage('success', 'Email accepted. Pick your favourite below.');
+      state.myVote = null;
     }
 
     closeEmailGate();
+    showToast(alreadyVoted ? 'This email address has already voted.' : 'Email accepted for this browser.');
   } catch (error) {
     console.error(error);
     state.voterEmail = '';
@@ -516,36 +541,18 @@ async function handleEmailSubmit(event) {
 }
 
 function handleEmailInput() {
-  const current = normalizeEmail(els.emailInput.value);
-  if (current === state.voterEmail) return;
-
-  state.voterEmail = '';
-  state.emailReady = false;
-  state.alreadyVoted = false;
-  state.myVote = null;
+  if (state.voterEmail) return;
   setEmailMessage('', '');
-  updateVoterStrip();
-  renderEntries();
-}
-
-function handleChangeEmail() {
-  state.voterEmail = '';
-  state.emailReady = false;
-  state.alreadyVoted = false;
-  state.myVote = null;
-  els.emailInput.value = '';
-  setEmailMessage('', '');
-  updateVoterStrip();
-  renderEntries();
-  openEmailGate();
 }
 
 async function castVote(entryId) {
   if (state.busy || !votingIsOpen()) return;
 
   if (!state.voterEmail || !state.emailReady) {
-    showToast('Enter your work email and press Continue first.');
-    openEmailGate();
+    if (!state.voterEmail) {
+      showToast('Enter your work email first.');
+      openEmailGate();
+    }
     return;
   }
 
@@ -632,7 +639,9 @@ async function init() {
       loadPublicStatus(),
     ]);
 
-    if (resultsAvailable() || !votingIsOpen()) {
+    await applyLockedBrowserEmail();
+
+    if (resultsAvailable() || !votingIsOpen() || state.voterEmail) {
       closeEmailGate();
     } else {
       openEmailGate();
@@ -658,7 +667,6 @@ async function init() {
 
 els.emailForm.addEventListener('submit', handleEmailSubmit);
 els.emailInput.addEventListener('input', handleEmailInput);
-els.changeEmailButton.addEventListener('click', handleChangeEmail);
 els.closeDialog.addEventListener('click', closeImage);
 els.imageDialog.addEventListener('click', (event) => {
   if (event.target === els.imageDialog) closeImage();
