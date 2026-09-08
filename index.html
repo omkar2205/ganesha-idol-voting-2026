@@ -12,17 +12,8 @@
   <div id="siteShell" class="site-shell">
     <img class="festival-corner festival-corner-top" src="https://drive.google.com/thumbnail?id=1E3Hd1mfELy9-KTKyk5zP-yXopY95xUnN&sz=w1200" alt="" aria-hidden="true" />
 
-    <header class="site-header">
-      <div class="brand-line">
-        <span class="brand-pill">Ganesha Idol Competition 2026</span>
-        <img class="gosh-logo" src="https://drive.google.com/thumbnail?id=1cudy8JFpAuCcU9rKHm25turPsoJkmyJo&sz=w1000" alt="GOSH - GUS On Staff Happiness" />
-      </div>
-
-      <div class="hero-copy">
-        <h1>Ganesha Idol Competition</h1>
-        <p class="hero-subtitle">Pick your favourite!!</p>
-        <p class="hero-note">One vote per person.</p>
-      </div>
+    <header class="site-header" aria-label="Site branding">
+      <img class="gosh-logo" src="https://drive.google.com/thumbnail?id=1cudy8JFpAuCcU9rKHm25turPsoJkmyJo&sz=w1000" alt="GOSH - GUS On Staff Happiness" />
     </header>
 
     <main>
@@ -36,22 +27,19 @@
         <button id="changeEmailButton" type="button">Change email</button>
       </div>
 
-      <section class="festival-dashboard" aria-label="Live voting status">
-        <article class="festival-panel ladoo-panel">
-          <img class="panel-art ladoo-art" src="https://drive.google.com/thumbnail?id=1E76SZkKrhACJ-aV-1NBpoBfxurM9tVRP&sz=w900" alt="" aria-hidden="true" />
-          <div class="panel-copy ladoo-copy">
-            <span class="panel-label">Votes cast</span>
-            <strong id="totalVotes" class="panel-number" aria-live="polite">0</strong>
-            <span class="panel-note">Live total</span>
-          </div>
-        </article>
+      <aside class="vote-counter-fixed" aria-label="Total votes cast">
+        <span class="counter-label">Votes cast</span>
+        <strong id="totalVotes" class="counter-number" aria-live="polite">0</strong>
+        <span class="counter-note">Live total</span>
+      </aside>
 
-        <article class="festival-panel timer-panel">
-          <img class="panel-art mooshak-art" src="https://drive.google.com/thumbnail?id=1i--uXoRIikTgOX7yJ6TQngBY5uzHuOIa&sz=w900" alt="" aria-hidden="true" />
+      <section class="timer-stage" aria-label="Voting countdown">
+        <article class="timer-panel">
+          <img class="mooshak-art" src="https://drive.google.com/thumbnail?id=1i--uXoRIikTgOX7yJ6TQngBY5uzHuOIa&sz=w900" alt="" aria-hidden="true" />
           <div class="timer-on-board">
-            <span id="countdownLabel" class="panel-label">Countdown</span>
+            <span id="countdownLabel" class="timer-label">Countdown</span>
             <strong id="countdown" class="timer-number" aria-live="polite">Waiting</strong>
-            <span id="countdownNote" class="panel-note">Starts with the first vote</span>
+            <span id="countdownNote" class="timer-note">Starts with the first vote</span>
           </div>
         </article>
       </section>
@@ -72,7 +60,6 @@
     <div class="email-card">
       <span class="email-symbol" aria-hidden="true">ॐ</span>
       <img class="email-logo" src="https://drive.google.com/thumbnail?id=1cudy8JFpAuCcU9rKHm25turPsoJkmyJo&sz=w800" alt="GOSH" />
-      <p class="email-kicker">Ganesha Idol Competition</p>
       <h2 id="emailTitle">Enter your email ID</h2>
       <p class="email-intro">Use your GUS Education India email to continue.</p>
 
