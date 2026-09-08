@@ -30,7 +30,7 @@ body {
   margin: 0;
   min-width: 300px;
   min-height: 100vh;
-  padding-bottom: 88px;
+  padding-bottom: 112px;
   overflow-x: hidden;
   color: var(--text);
   font-family: Aptos, "Segoe UI", Arial, sans-serif;
@@ -74,7 +74,7 @@ img {
   position: relative;
   width: min(1440px, calc(100% - clamp(20px, 4vw, 64px)));
   margin: 0 auto;
-  padding: 0 env(safe-area-inset-right) 48px env(safe-area-inset-left);
+  padding: 0 env(safe-area-inset-right) 34px env(safe-area-inset-left);
   transition: filter 240ms ease, transform 240ms ease, opacity 240ms ease;
 }
 
@@ -94,7 +94,7 @@ body.gate-open .site-shell {
   position: fixed;
   z-index: -1;
   width: min(520px, 45vw);
-  opacity: 0.46;
+  opacity: 0.42;
   pointer-events: none;
 }
 
@@ -107,45 +107,55 @@ body.gate-open .site-shell {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  min-height: clamp(82px, 11vw, 126px);
-  padding: clamp(18px, 3vw, 34px) 0 clamp(14px, 2.2vw, 22px);
+  min-height: 0;
+  padding: clamp(14px, 2.4vw, 28px) 0 clamp(12px, 2vw, 20px);
 }
 
 .gosh-logo {
   display: block;
-  width: clamp(176px, 23vw, 330px);
-  max-height: 94px;
+  width: clamp(160px, 19vw, 285px);
+  max-height: 82px;
   object-fit: contain;
-  padding: 10px 12px;
-  border-radius: 18px;
-  background: rgba(255, 249, 239, 0.72);
+  padding: 8px 10px;
+  border-radius: 16px;
+  background: rgba(255, 249, 239, 0.74);
   box-shadow: 0 10px 28px rgba(74, 42, 27, 0.08);
+}
+
+.vote-counter-fixed {
+  position: fixed;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 42;
+  min-width: 142px;
+  padding: 12px 15px 13px;
+  border: 1px solid rgba(112, 20, 22, 0.18);
+  border-radius: 20px;
+  color: var(--ink);
+  background: rgba(255, 249, 239, 0.93);
+  box-shadow: 0 16px 42px rgba(79, 36, 24, 0.16);
+  backdrop-filter: blur(12px);
+  text-align: left;
 }
 
 .status-banner {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  gap: 7px;
   width: fit-content;
   max-width: 100%;
-  min-height: 42px;
-  margin: 0 auto clamp(16px, 2.6vw, 28px);
-  padding: 9px 15px;
-  border: 1px solid rgba(149, 31, 34, 0.13);
-  border-radius: 999px;
+  min-height: 20px;
+  margin: 0 0 7px;
   color: var(--ink);
-  background: rgba(255, 247, 233, 0.78);
-  backdrop-filter: blur(8px);
-  font-size: 0.9rem;
-  font-weight: 900;
-  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 950;
+  line-height: 1.15;
 }
 
 .status-dot {
   flex: 0 0 auto;
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #8a8a8a;
 }
@@ -159,57 +169,13 @@ body.gate-open .site-shell {
   50% { opacity: 1; transform: scale(1.15); }
 }
 
-.voter-strip {
-  display: flex;
-  width: fit-content;
-  max-width: 100%;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin: -8px auto 24px;
-  padding: 9px 12px 9px 16px;
-  border: 1px solid rgba(151, 31, 37, 0.14);
-  border-radius: 999px;
-  background: rgba(255, 249, 239, 0.78);
-  color: var(--muted);
-  font-size: 0.86rem;
-  font-weight: 800;
-}
-
-.voter-strip button {
-  border: 0;
-  border-radius: 999px;
-  padding: 7px 12px;
-  color: #fffaf0;
-  background: var(--maroon);
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 900;
-}
-
-.vote-counter-fixed {
-  position: fixed;
-  left: max(16px, env(safe-area-inset-left));
-  bottom: max(16px, env(safe-area-inset-bottom));
-  z-index: 42;
-  min-width: 132px;
-  padding: 13px 16px 14px;
-  border: 1px solid rgba(112, 20, 22, 0.18);
-  border-radius: 20px;
-  color: var(--ink);
-  background: rgba(255, 249, 239, 0.92);
-  box-shadow: 0 16px 42px rgba(79, 36, 24, 0.16);
-  backdrop-filter: blur(12px);
-  text-align: left;
-}
-
 .counter-label,
 .counter-note {
   display: block;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   font-weight: 950;
-  line-height: 1.25;
-  letter-spacing: 0.1em;
+  line-height: 1.2;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
@@ -219,31 +185,33 @@ body.gate-open .site-shell {
 
 .counter-number {
   display: block;
-  margin: 3px 0 2px;
+  margin: 2px 0;
   color: var(--maroon-dark);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 2.35rem;
+  font-size: 2.28rem;
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 
 .counter-note {
   color: var(--muted);
-  font-size: 0.66rem;
-  letter-spacing: 0.06em;
+  font-size: 0.64rem;
+  letter-spacing: 0.05em;
 }
 
 .timer-stage {
-  display: flex;
-  justify-content: center;
-  margin: 0 auto clamp(26px, 4vw, 48px);
+  position: fixed;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(8px, env(safe-area-inset-bottom));
+  z-index: 41;
+  width: clamp(156px, 17vw, 230px);
+  pointer-events: none;
 }
 
 .timer-panel {
   position: relative;
-  width: clamp(230px, 28vw, 330px);
+  width: 100%;
   aspect-ratio: 561 / 701;
-  margin: 0 auto;
 }
 
 .mooshak-art {
@@ -261,14 +229,14 @@ body.gate-open .site-shell {
   left: 52.5%;
   top: 60.8%;
   width: 47%;
-  max-width: 178px;
-  min-height: 76px;
+  max-width: 120px;
+  min-height: 52px;
   transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 3px;
-  padding: 5px 4px;
+  gap: 2px;
+  padding: 3px;
   overflow: hidden;
   text-align: center;
   pointer-events: none;
@@ -279,17 +247,17 @@ body.gate-open .site-shell {
   display: block;
   max-width: 100%;
   color: var(--terracotta);
-  font-size: clamp(0.48rem, 0.95vw, 0.66rem);
+  font-size: clamp(0.38rem, 0.62vw, 0.52rem);
   font-weight: 950;
   line-height: 1.05;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
 .timer-note {
   color: var(--muted);
-  font-size: clamp(0.46rem, 0.85vw, 0.58rem);
+  font-size: clamp(0.36rem, 0.55vw, 0.46rem);
   letter-spacing: 0;
   text-transform: none;
   white-space: normal;
@@ -300,7 +268,7 @@ body.gate-open .site-shell {
   width: 100%;
   color: var(--maroon-dark);
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.05rem, 2.55vw, 1.58rem);
+  font-size: clamp(0.82rem, 1.55vw, 1.18rem);
   font-weight: 900;
   line-height: 1;
   letter-spacing: 0.01em;
@@ -703,8 +671,7 @@ body.gate-open .site-shell {
 
 .vote-button:focus-visible,
 .dialog-close:focus-visible,
-.email-row button:focus-visible,
-.voter-strip button:focus-visible {
+.email-row button:focus-visible {
   outline: 3px solid rgba(201, 94, 61, 0.5);
   outline-offset: 3px;
 }
@@ -745,8 +712,7 @@ body.gate-open .site-shell {
   }
 
   .vote-button:hover:not(:disabled),
-  .email-row button:hover:not(:disabled),
-  .voter-strip button:hover {
+  .email-row button:hover:not(:disabled) {
     transform: translateY(-1px);
   }
 }
@@ -764,21 +730,20 @@ body.gate-open .site-shell {
 
   .site-header {
     justify-content: center;
-    min-height: auto;
-    padding-top: 22px;
+    padding-top: 18px;
   }
 
   .gosh-logo {
-    width: min(300px, 78vw);
+    width: min(270px, 74vw);
   }
 
   .festival-corner {
     width: 420px;
-    opacity: 0.33;
+    opacity: 0.3;
   }
 
-  .timer-panel {
-    width: clamp(224px, 54vw, 320px);
+  .timer-stage {
+    width: clamp(132px, 28vw, 180px);
   }
 
   .timer-on-board {
@@ -793,44 +758,21 @@ body.gate-open .site-shell {
 
 @media (max-width: 560px) {
   body {
-    padding-bottom: 82px;
+    padding-bottom: 96px;
   }
 
   .site-shell {
     width: min(100% - 18px, 1440px);
-    padding-bottom: 32px;
+    padding-bottom: 26px;
   }
 
-  .status-banner {
-    font-size: 0.82rem;
+  .site-header {
+    padding: 14px 0 12px;
   }
 
-  .voter-strip {
-    flex-wrap: wrap;
-    border-radius: 18px;
-    text-align: center;
-  }
-
-  .timer-panel {
-    width: min(280px, 78vw);
-  }
-
-  .timer-on-board {
-    top: 60.7%;
-    width: 49%;
-    min-height: 66px;
-  }
-
-  .timer-label {
-    font-size: 0.48rem;
-  }
-
-  .timer-number {
-    font-size: clamp(1rem, 5.2vw, 1.34rem);
-  }
-
-  .timer-note {
-    display: none;
+  .gosh-logo {
+    width: min(235px, 76vw);
+    max-height: 74px;
   }
 
   .entries-grid {
@@ -843,20 +785,55 @@ body.gate-open .site-shell {
   }
 
   .vote-counter-fixed {
-    left: 12px;
-    bottom: max(12px, env(safe-area-inset-bottom));
+    left: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
     min-width: 112px;
-    padding: 10px 12px 11px;
+    padding: 9px 11px 10px;
     border-radius: 17px;
+  }
+
+  .status-banner {
+    gap: 5px;
+    margin-bottom: 5px;
+    font-size: 0.58rem;
+  }
+
+  .status-dot {
+    width: 7px;
+    height: 7px;
   }
 
   .counter-label,
   .counter-note {
-    font-size: 0.6rem;
+    font-size: 0.56rem;
   }
 
   .counter-number {
-    font-size: 1.95rem;
+    font-size: 1.82rem;
+  }
+
+  .timer-stage {
+    right: 4px;
+    bottom: max(2px, env(safe-area-inset-bottom));
+    width: clamp(118px, 35vw, 148px);
+  }
+
+  .timer-on-board {
+    top: 60.7%;
+    width: 49%;
+    min-height: 40px;
+  }
+
+  .timer-label {
+    font-size: 0.34rem;
+  }
+
+  .timer-number {
+    font-size: clamp(0.68rem, 3.2vw, 0.92rem);
+  }
+
+  .timer-note {
+    display: none;
   }
 
   .email-card {
@@ -879,17 +856,27 @@ body.gate-open .site-shell {
 }
 
 @media (orientation: landscape) and (max-height: 560px) {
+  body {
+    padding-bottom: 74px;
+  }
+
   .site-header {
-    padding-top: 12px;
+    padding-top: 10px;
     padding-bottom: 8px;
   }
 
   .gosh-logo {
-    max-height: 72px;
+    width: 210px;
+    max-height: 64px;
   }
 
-  .timer-panel {
-    width: 210px;
+  .timer-stage {
+    width: 132px;
+  }
+
+  .vote-counter-fixed {
+    transform: scale(0.92);
+    transform-origin: bottom left;
   }
 
   .image-dialog img {
