@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#8f1f1f" />
+  <meta name="description" content="Admin dashboard for Ganesha Idol Competition voting" />
+  <title>Voting Admin | Ganesha Idol Competition 2026</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <main class="admin-shell">
+    <section id="loginPanel" class="login-panel">
+      <div class="login-card">
+        <img class="login-logo" src="https://drive.google.com/thumbnail?id=1cudy8JFpAuCcU9rKHm25turPsoJkmyJo&sz=w1000" alt="GOSH - GUS On Staff Happiness" />
+        <img class="login-icon" src="https://drive.google.com/thumbnail?id=1BodiuRQPzWt0wYjGOJ-dSt16JaUz3Mpg&sz=w512" alt="" aria-hidden="true" />
+        <p class="kicker">Voting Admin</p>
+        <h1>Admin login</h1>
+        <p class="intro">Use the approved admin account to manage voting, view results and review voter records.</p>
+
+        <form id="loginForm" class="login-form">
+          <label for="adminEmail">Admin email</label>
+          <input id="adminEmail" type="email" autocomplete="email" placeholder="name@guseducationindia.com" required />
+
+          <label for="adminPassword">Password</label>
+          <input id="adminPassword" type="password" autocomplete="current-password" placeholder="Admin password" required />
+
+          <button id="loginButton" type="submit">Log in</button>
+          <p id="loginMessage" class="form-message" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
+    <section id="dashboardPanel" class="dashboard-panel" hidden>
+      <header class="admin-header">
+        <div>
+          <p class="kicker">Ganesha Idol Competition 2026</p>
+          <h1>Voting admin</h1>
+          <p id="adminIdentity" class="admin-identity">Signed in</p>
+        </div>
+        <div class="header-actions">
+          <a class="ghost-link" href="index.html">Open voting page</a>
+          <button id="refreshButton" type="button">Refresh</button>
+          <button id="logoutButton" type="button" class="secondary">Log out</button>
+        </div>
+      </header>
+
+      <section class="summary-grid" aria-label="Voting summary">
+        <article class="summary-card">
+          <span>Total votes</span>
+          <strong id="summaryTotal">0</strong>
+          <small>Current recorded votes</small>
+        </article>
+        <article class="summary-card">
+          <span>Status</span>
+          <strong id="summaryStatus">Loading</strong>
+          <small id="summaryStatusNote">Checking server</small>
+        </article>
+        <article class="summary-card">
+          <span>Timer</span>
+          <strong id="summaryTimer">Waiting</strong>
+          <small id="summaryTimerNote">Starts with first vote</small>
+        </article>
+        <article class="summary-card">
+          <span>Window</span>
+          <strong id="summaryWindow">1 min</strong>
+          <small>Editable below</small>
+        </article>
+      </section>
+
+      <section class="control-panel" aria-label="Admin controls">
+        <div class="panel-title">
+          <h2>Controls</h2>
+          <p>Changes take effect immediately on the public voting page.</p>
+        </div>
+
+        <div class="control-grid">
+          <button id="openVotingButton" type="button">Open voting</button>
+          <button id="closeVotingButton" type="button" class="secondary">Close voting</button>
+          <button id="resetTimerButton" type="button" class="secondary">Reset timer</button>
+          <button id="resetVotesButton" type="button" class="danger">Reset all votes</button>
+        </div>
+
+        <form id="timerForm" class="timer-form">
+          <label for="timerMinutes">Voting window in minutes</label>
+          <div class="timer-input-row">
+            <input id="timerMinutes" type="number" min="1" max="1440" step="1" value="1" />
+            <button type="submit">Save timer</button>
+          </div>
+          <p class="hint">For final use, set this to 60 minutes. For testing, keep it at 1 minute.</p>
+        </form>
+      </section>
+
+      <section class="data-grid">
+        <article class="data-panel">
+          <div class="panel-title compact">
+            <h2>Results</h2>
+            <p>Admin-only result view.</p>
+          </div>
+          <div id="resultsGrid" class="results-grid"></div>
+        </article>
+
+        <article class="data-panel">
+          <div class="panel-title compact">
+            <h2>Voter records</h2>
+            <p>Shows which email voted for which team.</p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Vote</th>
+                  <th>Time</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="votesTableBody"></tbody>
+            </table>
+          </div>
+          <p id="emptyVotes" class="empty-copy" hidden>No votes recorded yet.</p>
+        </article>
+      </section>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
